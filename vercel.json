@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm install && npx vite build",
-  "installCommand": "rm -rf node_modules package-lock.json && npm install",
-  "outputDirectory": "dist"
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
