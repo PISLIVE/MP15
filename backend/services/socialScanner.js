@@ -2,40 +2,41 @@ const axios = require("axios");
 
 // ─── Platform registry ────────────────────────────────────────────────────────
 // strategy:
-//   "direct"  → HTTP HEAD/GET to the profile URL
-//   "search"  → SerpAPI (falls back to direct if no key)
-//   "hybrid"  → try direct first, then SerpAPI
+//   "instagram-api" → dedicated Instagram JSON endpoint
+//   "direct"        → reliable HTTP HEAD/GET check
+//   "skip"          → cannot be reliably checked without a paid API (no SerpAPI = skip)
 const platforms = [
-  { name: "Instagram",   url: "https://www.instagram.com/",         domain: "instagram.com",    strategy: "search" },
-  { name: "Facebook",    url: "https://www.facebook.com/",          domain: "facebook.com",     strategy: "search" },
-  { name: "Threads",     url: "https://www.threads.net/@",          domain: "threads.net",      strategy: "search" },
-  { name: "X",           url: "https://x.com/",                    domain: "x.com",            strategy: "direct" },
-  { name: "Twitter",     url: "https://twitter.com/",               domain: "twitter.com",      strategy: "direct" },
-  { name: "LinkedIn",    url: "https://www.linkedin.com/in/",       domain: "linkedin.com",     strategy: "search" },
-  { name: "GitHub",      url: "https://github.com/",               domain: "github.com",       strategy: "direct" },
-  { name: "Reddit",      url: "https://www.reddit.com/user/",      domain: "reddit.com",       strategy: "direct" },
-  { name: "Pinterest",   url: "https://www.pinterest.com/",        domain: "pinterest.com",    strategy: "hybrid" },
-  { name: "YouTube",     url: "https://www.youtube.com/@",         domain: "youtube.com",      strategy: "search" },
-  { name: "TikTok",      url: "https://www.tiktok.com/@",          domain: "tiktok.com",       strategy: "search" },
-  { name: "Snapchat",    url: "https://www.snapchat.com/add/",     domain: "snapchat.com",     strategy: "search" },
-  { name: "Telegram",    url: "https://t.me/",                     domain: "t.me",             strategy: "direct" },
-  { name: "Twitch",      url: "https://www.twitch.tv/",            domain: "twitch.tv",        strategy: "direct" },
-  { name: "Spotify",     url: "https://open.spotify.com/user/",    domain: "spotify.com",      strategy: "search" },
-  { name: "Medium",      url: "https://medium.com/@",              domain: "medium.com",       strategy: "hybrid" },
-  { name: "GitLab",      url: "https://gitlab.com/",               domain: "gitlab.com",       strategy: "direct" },
-  { name: "Behance",     url: "https://www.behance.net/",          domain: "behance.net",      strategy: "direct" },
-  { name: "Dribbble",    url: "https://dribbble.com/",             domain: "dribbble.com",     strategy: "direct" },
-  { name: "CodePen",     url: "https://codepen.io/",               domain: "codepen.io",       strategy: "direct" },
-  { name: "SoundCloud",  url: "https://soundcloud.com/",           domain: "soundcloud.com",   strategy: "direct" },
-  { name: "Vimeo",       url: "https://vimeo.com/",                domain: "vimeo.com",        strategy: "direct" },
-  { name: "Keybase",     url: "https://keybase.io/",               domain: "keybase.io",       strategy: "direct" },
-  { name: "DevTo",       url: "https://dev.to/",                   domain: "dev.to",           strategy: "direct" },
-  { name: "AboutMe",     url: "https://about.me/",                 domain: "about.me",         strategy: "direct" },
-  { name: "HackerRank",  url: "https://www.hackerrank.com/",       domain: "hackerrank.com",   strategy: "direct" },
-  { name: "Steam",       url: "https://steamcommunity.com/id/",    domain: "steamcommunity.com", strategy: "direct" },
-  { name: "Mastodon",    url: "https://mastodon.social/@",         domain: "mastodon.social",  strategy: "direct" },
-  { name: "Flickr",      url: "https://www.flickr.com/people/",   domain: "flickr.com",       strategy: "direct" },
-  { name: "Gravatar",    url: "https://en.gravatar.com/",          domain: "gravatar.com",     strategy: "direct" },
+  { name: "Instagram",   url: "https://www.instagram.com/",           domain: "instagram.com",      strategy: "instagram-api" },
+  { name: "GitHub",      url: "https://github.com/",                  domain: "github.com",         strategy: "direct" },
+  { name: "Reddit",      url: "https://www.reddit.com/user/",         domain: "reddit.com",         strategy: "direct" },
+  { name: "GitLab",      url: "https://gitlab.com/",                  domain: "gitlab.com",         strategy: "direct" },
+  { name: "YouTube",     url: "https://www.youtube.com/@",            domain: "youtube.com",        strategy: "direct" },
+  { name: "Twitch",      url: "https://www.twitch.tv/",              domain: "twitch.tv",          strategy: "direct" },
+  { name: "Medium",      url: "https://medium.com/@",                domain: "medium.com",         strategy: "direct" },
+  { name: "Pinterest",   url: "https://www.pinterest.com/",          domain: "pinterest.com",      strategy: "direct" },
+  { name: "SoundCloud",  url: "https://soundcloud.com/",             domain: "soundcloud.com",     strategy: "direct" },
+  { name: "Vimeo",       url: "https://vimeo.com/",                  domain: "vimeo.com",          strategy: "direct" },
+  { name: "Keybase",     url: "https://keybase.io/",                 domain: "keybase.io",         strategy: "direct" },
+  { name: "DevTo",       url: "https://dev.to/",                     domain: "dev.to",             strategy: "direct" },
+  { name: "CodePen",     url: "https://codepen.io/",                 domain: "codepen.io",         strategy: "direct" },
+  { name: "HackerRank",  url: "https://www.hackerrank.com/",         domain: "hackerrank.com",     strategy: "direct" },
+  { name: "Behance",     url: "https://www.behance.net/",            domain: "behance.net",        strategy: "direct" },
+  { name: "Dribbble",    url: "https://dribbble.com/",               domain: "dribbble.com",       strategy: "direct" },
+  { name: "Steam",       url: "https://steamcommunity.com/id/",      domain: "steamcommunity.com", strategy: "direct" },
+  { name: "Mastodon",    url: "https://mastodon.social/@",           domain: "mastodon.social",    strategy: "direct" },
+  { name: "Gravatar",    url: "https://en.gravatar.com/",            domain: "gravatar.com",       strategy: "direct" },
+  { name: "AboutMe",     url: "https://about.me/",                   domain: "about.me",           strategy: "direct" },
+  // ── Platforms that block all scraping without a paid API ──────────────────
+  // These return null to avoid false positives. Add SerpAPI key to enable them.
+  { name: "X",           url: "https://x.com/",                      domain: "x.com",              strategy: "skip" },
+  { name: "Twitter",     url: "https://twitter.com/",                 domain: "twitter.com",        strategy: "skip" },
+  { name: "Facebook",    url: "https://www.facebook.com/",            domain: "facebook.com",       strategy: "skip" },
+  { name: "LinkedIn",    url: "https://www.linkedin.com/in/",         domain: "linkedin.com",       strategy: "skip" },
+  { name: "TikTok",      url: "https://www.tiktok.com/@",            domain: "tiktok.com",         strategy: "skip" },
+  { name: "Snapchat",    url: "https://www.snapchat.com/add/",        domain: "snapchat.com",       strategy: "skip" },
+  { name: "Telegram",    url: "https://t.me/",                        domain: "t.me",               strategy: "skip" },
+  { name: "Threads",     url: "https://www.threads.net/@",            domain: "threads.net",        strategy: "skip" },
+  { name: "Spotify",     url: "https://open.spotify.com/user/",      domain: "spotify.com",        strategy: "skip" },
 ];
 
 // ─── Patterns that prove a page is a "not found" / error page ─────────────────
@@ -165,6 +166,53 @@ const buildSearchQuery = (platform, username, fallback = false) => {
   return `site:${platform.domain} "${username}"`;
 };
 
+// ─── instagramCheck ──────────────────────────────────────────────────────────
+// Instagram blocks all HTML scraping. We use their internal JSON API endpoint
+// which returns user data for public profiles and 404 for non-existent ones.
+const instagramCheck = async (username) => {
+  const profileUrl = `https://www.instagram.com/${encodeURIComponent(username)}/`;
+  const apiUrl     = `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`;
+
+  try {
+    const response = await axios.get(apiUrl, {
+      timeout: 12000,
+      headers: {
+        "User-Agent":      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "X-IG-App-ID":    "936619743392459",
+        "Accept":         "application/json, text/plain, */*",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer":        `https://www.instagram.com/${username}/`,
+        "Origin":         "https://www.instagram.com",
+      },
+      validateStatus: (s) => s < 500,
+    });
+
+    if (response.status === 404) return null;
+    if (response.status !== 200) return null;
+
+    const user = response.data?.data?.user;
+    if (!user) return null;
+
+    return {
+      platform: "Instagram",
+      url:      profileUrl,
+      found:    true,
+      source:   "instagram-api",
+      profileData: {
+        name:            user.full_name || username,
+        bio:             user.biography || null,
+        avatar:          user.profile_pic_url || null,
+        followers:       user.edge_followed_by?.count || null,
+        isPrivate:       user.is_private || false,
+        isVerified:      user.is_verified || false,
+        visibilityScore: user.is_private ? "low" : (user.edge_followed_by?.count > 1000 ? "high" : "medium"),
+      },
+    };
+  } catch {
+    return null;
+  }
+};
+
 // ─── directCheck ─────────────────────────────────────────────────────────────
 // Improved logic:
 //  1. Hard 404 → null
@@ -265,10 +313,11 @@ const directCheck = async (platform, username) => {
   }
 };
 
-// ─── SerpAPI fallback ─────────────────────────────────────────────────────────
+// ─── SerpAPI fallback (only used when SERPAPI_KEY is set with active credits) ──
 const serpApiFallback = async (platform, username) => {
-  // No SerpAPI key → use direct check as best-effort
-  if (!process.env.SERPAPI_KEY) return directCheck(platform, username);
+  // No key → return null. Do NOT fall back to directCheck for these platforms
+  // because they block scraping and cause false positives.
+  if (!process.env.SERPAPI_KEY) return null;
 
   const trySearch = async (query) => {
     try {
@@ -330,8 +379,10 @@ const serpApiFallback = async (platform, username) => {
 
 // ─── Platform dispatcher ──────────────────────────────────────────────────────
 const checkPlatform = async (platform, username) => {
-  if (platform.strategy === "direct")  return directCheck(platform, username);
-  if (platform.strategy === "search")  return serpApiFallback(platform, username);
+  if (platform.strategy === "skip")          return null; // unreliable without paid API
+  if (platform.strategy === "instagram-api") return instagramCheck(username);
+  if (platform.strategy === "direct")        return directCheck(platform, username);
+  if (platform.strategy === "search")        return serpApiFallback(platform, username);
 
   // hybrid: try direct first, fall back to SerpAPI
   const direct = await directCheck(platform, username);
