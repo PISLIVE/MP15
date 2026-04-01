@@ -42,6 +42,7 @@ const platforms = [
 // Be SPECIFIC — avoid short strings like "not found" or "404" that appear in
 // page navigation on valid profile pages.
 const NOT_FOUND_PATTERNS = [
+  // Generic
   "this account doesn't exist",
   "this page isn't available",
   "sorry, this page isn't available",
@@ -59,6 +60,35 @@ const NOT_FOUND_PATTERNS = [
   "404 not found",
   "<title>page not found</title>",
   "this profile has been removed",
+  // Reddit
+  "nobody on reddit goes by that name",
+  "sorry, nobody on reddit goes by that name",
+  // GitHub
+  "not found · github",
+  // Twitch
+  "sorry. unless you've got a time machine",
+  "this channel does not exist",
+  // Steam
+  "the specified profile could not be found",
+  "error: no such user",
+  // Dev.to
+  "uhoh page not found",
+  // HackerRank
+  "the page you are looking for doesn't exist",
+  // GitLab
+  "page not found · gitlab",
+  // Dribbble
+  "the page you were looking for doesn't exist",
+  // Keybase
+  "user not found",
+  // Telegram (generic homepage redirect text)
+  "a new era of messaging",
+  // CodePen
+  "we can't find that page",
+  // Gravatar
+  "gravatar profile not found",
+  // About.me
+  "this page doesn't exist",
 ];
 
 // ─── Login-wall detection (URL patterns) ────────────────────────────────────
@@ -191,7 +221,8 @@ const directCheck = async (platform, username) => {
       const titleLower = normalize(metadata.name || "");
       const userLower  = normalize(username);
 
-      // Strong signal: username appears in page title/og:title
+      // Strong signal 1: username appears in og:title / page title
+      // e.g. "john_doe - GitHub", "john_doe (u/john_doe) - Reddit"
       if (titleLower.includes(userLower)) {
         return {
           platform: platform.name,
@@ -205,7 +236,9 @@ const directCheck = async (platform, username) => {
         };
       }
 
-      // Fallback signal: username appears in the final URL (after redirects)
+      // Strong signal 2: username appears in the final URL (after redirects)
+      // Avoids false positives from platforms that serve their own branding
+      // on error/non-existent profile pages (Telegram, Twitch, Steam, etc.)
       if (finalUrl.includes(userLower)) {
         return {
           platform: platform.name,
@@ -219,23 +252,9 @@ const directCheck = async (platform, username) => {
         };
       }
 
-      // Fallback-fallback: rich metadata exists (avatar + bio) at the exact URL we
-      // requested — treat as found (profile exists, platform may not echo username
-      // back in URL, e.g. Steam vanity URLs, Gravatar, AboutMe).
-      if (metadata.avatar && metadata.bio) {
-        return {
-          platform: platform.name,
-          url:      profileUrl,
-          found:    true,
-          source:   "direct-metadata",
-          profileData: {
-            ...metadata,
-            visibilityScore: computeVisibilityScore(metadata),
-          },
-        };
-      }
-
-      // 200 but no useful signals → treat as not found (generic homepage redirect)
+      // ⚠️ NO avatar+bio fallback — platforms like Telegram, Twitch, Steam
+      // serve their own branding og:image/og:description on ALL pages,
+      // including non-existent user pages, causing false positives.
       return null;
     }
 
