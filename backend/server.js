@@ -9,6 +9,9 @@ const settingsRoutes = require("./routes/settingsRoutes");
 
 const app = express();
 
+// Required for Render's load balancer — fixes express-rate-limit X-Forwarded-For warning
+app.set("trust proxy", 1);
+
 // 1. HTTP Header Security
 app.use(helmet());
 
