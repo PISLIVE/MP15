@@ -28,7 +28,7 @@ const platforms = [
   { name: "AboutMe", url: "https://about.me/", domain: "about.me", strategy: "direct" },
   // ── Platforms that block all scraping without a paid API ──────────────────
   // These return null to avoid false positives. Add SerpAPI key to enable them.
-  { name: "X", url: "https://x.com/", domain: "x.com", strategy: "skip" },
+  { name: "X", url: "https://x.com/", domain: "x.com", strategy: "search" },
   { name: "Twitter", url: "https://twitter.com/", domain: "twitter.com", strategy: "search" },
   { name: "Facebook", url: "https://www.facebook.com/", domain: "facebook.com", strategy: "search" },
   { name: "LinkedIn", url: "https://www.linkedin.com/in/", domain: "linkedin.com", strategy: "search" },
@@ -167,50 +167,161 @@ const buildSearchQuery = (platform, username, fallback = false) => {
 };
 
 // ─── instagramCheck ──────────────────────────────────────────────────────────
-// Instagram blocks all HTML scraping. We use their internal JSON API endpoint
-// which returns user data for public profiles and 404 for non-existent ones.
+// Uses 3 strategies in sequence (server IPs are often blocked by IG's JSON API):
+//   1. Internal JSON API  (best data, often blocked from hosting IPs)
+//   2. Direct HTML scrape (IG renders og:title server-side for SEO — reliable)
+//   3. oEmbed API         (no auth needed, works for public profiles)
 const instagramCheck = async (username) => {
   const profileUrl = `https://www.instagram.com/${encodeURIComponent(username)}/`;
-  const apiUrl = `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`;
+  const userLower = normalize(username);
 
+  const commonHeaders = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept-Language": "en-US,en;q=0.9",
+  };
+
+  // ── Strategy 1: Internal JSON API ─────────────────────────────────────────
   try {
-    const response = await axios.get(apiUrl, {
-      timeout: 12000,
+    const apiUrl = `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`;
+    const res = await axios.get(apiUrl, {
+      timeout: 10000,
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        ...commonHeaders,
         "X-IG-App-ID": "936619743392459",
         "Accept": "application/json, text/plain, */*",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Referer": `https://www.instagram.com/${username}/`,
+        "Referer": profileUrl,
         "Origin": "https://www.instagram.com",
       },
       validateStatus: (s) => s < 500,
     });
 
-    if (response.status === 404) return null;
-    if (response.status !== 200) return null;
+    if (res.status === 404) return null; // Confirmed not found
+    if (res.status === 200) {
+      const user = res.data?.data?.user;
+      if (user) {
+        return {
+          platform: "Instagram",
+          url: profileUrl,
+          found: true,
+          source: "instagram-api",
+          profileData: {
+            name: user.full_name || username,
+            bio: user.biography || null,
+            avatar: user.profile_pic_url || null,
+            followers: user.edge_followed_by?.count || null,
+            isPrivate: user.is_private || false,
+            isVerified: user.is_verified || false,
+            visibilityScore: user.is_private ? "low" : (user.edge_followed_by?.count > 1000 ? "high" : "medium"),
+          },
+        };
+      }
+    }
+    // 401/403 = blocked from this IP → fall through to next strategy
+  } catch { /* fall through */ }
 
-    const user = response.data?.data?.user;
-    if (!user) return null;
-
-    return {
-      platform: "Instagram",
-      url: profileUrl,
-      found: true,
-      source: "instagram-api",
-      profileData: {
-        name: user.full_name || username,
-        bio: user.biography || null,
-        avatar: user.profile_pic_url || null,
-        followers: user.edge_followed_by?.count || null,
-        isPrivate: user.is_private || false,
-        isVerified: user.is_verified || false,
-        visibilityScore: user.is_private ? "low" : (user.edge_followed_by?.count > 1000 ? "high" : "medium"),
+  // ── Strategy 2: Login-redirect detection ─────────────────────────────────
+  // From datacenter IPs, Instagram redirects existing accounts to:
+  //   https://www.instagram.com/accounts/login/?next=%2Fusername%2F
+  // Non-existent accounts return HTTP 404 BEFORE redirecting.
+  // So: 404 = not found, redirect with ?next=/username/ = account exists.
+  try {
+    const res = await axios.get(profileUrl, {
+      timeout: 12000,
+      maxRedirects: 0, // Don't follow — we want to inspect the redirect URL
+      headers: {
+        ...commonHeaders,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       },
-    };
-  } catch {
-    return null;
-  }
+      validateStatus: (s) => s < 500, // accept 3xx too
+    });
+
+    // 404 → account definitely does not exist
+    if (res.status === 404) return null;
+
+    // 3xx redirect → check if it's a login wall with username in ?next=
+    if (res.status >= 300 && res.status < 400) {
+      const location = normalize(res.headers?.location || "");
+      // e.g. /accounts/login/?next=%2F_princeboro_%2F
+      if (location.includes("accounts/login") && location.includes(encodeURIComponent(`/${username}/`).toLowerCase())) {
+        return {
+          platform: "Instagram",
+          url: profileUrl,
+          found: true,
+          source: "instagram-redirect",
+          profileData: {
+            name: username,
+            visibilityScore: "low",
+            note: "Account exists — login required to view content",
+          },
+        };
+      }
+      // Also check un-encoded version
+      if (location.includes("accounts/login") && location.includes(userLower)) {
+        return {
+          platform: "Instagram",
+          url: profileUrl,
+          found: true,
+          source: "instagram-redirect",
+          profileData: {
+            name: username,
+            visibilityScore: "low",
+            note: "Account exists — login required to view content",
+          },
+        };
+      }
+    }
+
+    // 200 → Page served at the profile URL
+    // Debug confirmed: existing accounts → 200 at instagram.com/username/ (JS-rendered)
+    // Non-existent accounts → 404 or contains "sorry, this page isn't available"
+    // Instagram always sends title="Instagram" (JS-rendered) so we can't check title.
+    // A clean 200 with no error text = account confirmed ✅
+    if (res.status === 200) {
+      const html = safeHtml(res.data);
+      if (html.toLowerCase().includes("sorry, this page isn't available")) return null;
+      if (html.toLowerCase().includes("page not found")) return null;
+      return {
+        platform: "Instagram",
+        url: profileUrl,
+        found: true,
+        source: "instagram-direct",
+        profileData: {
+          name: username,
+          visibilityScore: "medium",
+          note: "Profile confirmed — login required to view full content",
+        },
+      };
+    }
+  } catch { /* fall through */ }
+
+  // ── Strategy 3: oEmbed API ────────────────────────────────────────────────
+  // Public endpoint, no auth needed. Returns 404 for non-existent profiles.
+  try {
+    const oembedUrl = `https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent(profileUrl)}`;
+    const res = await axios.get(oembedUrl, {
+      timeout: 8000,
+      headers: { ...commonHeaders, "Accept": "application/json" },
+      validateStatus: (s) => s < 500,
+    });
+
+    if (res.status === 404) return null;
+    if (res.status === 200 && res.data?.author_name) {
+      return {
+        platform: "Instagram",
+        url: profileUrl,
+        found: true,
+        source: "instagram-oembed",
+        profileData: {
+          name: res.data.author_name || username,
+          avatar: res.data.thumbnail_url || null,
+          visibilityScore: "low",
+        },
+      };
+    }
+  } catch { /* fall through */ }
+
+  // All 3 strategies failed (likely IP-blocked) → return null (no fake data)
+  return null;
 };
 
 // ─── directCheck ─────────────────────────────────────────────────────────────
@@ -269,9 +380,15 @@ const directCheck = async (platform, username) => {
       const titleLower = normalize(metadata.name || "");
       const userLower = normalize(username);
 
-      // Strong signal 1: username appears in og:title / page title
-      // e.g. "john_doe - GitHub", "john_doe (u/john_doe) - Reddit"
-      if (titleLower.includes(userLower)) {
+      // Strong signal 1: username appears at the START of og:title / page title
+      // e.g. "Google · GitLab" ✓, "google - Twitch" ✓
+      // BUT NOT "Mike Google" ✗ or "Explore Google Profiles" ✗
+      const titleStartsWithUser = titleLower.startsWith(userLower) ||
+        titleLower.startsWith(`@${userLower}`) ||
+        titleLower.includes(`(${userLower})`) ||
+        titleLower.includes(`(@${userLower})`);
+
+      if (titleStartsWithUser) {
         return {
           platform: platform.name,
           url: profileUrl,
@@ -284,10 +401,10 @@ const directCheck = async (platform, username) => {
         };
       }
 
-      // Strong signal 2: username appears in the final URL (after redirects)
-      // Avoids false positives from platforms that serve their own branding
-      // on error/non-existent profile pages (Telegram, Twitch, Steam, etc.)
-      if (finalUrl.includes(userLower)) {
+      // Strong signal 2: username in URL + username also in title
+      // Requiring BOTH prevents false positives where someone else claimed the
+      // URL vanity name (Steam: screwloose48, AboutMe: Daniel Fontana)
+      if (finalUrl.includes(userLower) && titleStartsWithUser) {
         return {
           platform: platform.name,
           url: profileUrl,
@@ -345,19 +462,27 @@ const serpApiFallback = async (platform, username) => {
     results = await trySearch(buildSearchQuery(platform, username, true));
   }
 
-  // Find a result that links to the platform domain AND mentions the username
+  // Find a result whose URL matches the expected profile URL pattern
+  // AND has the username in the link (prevents wrong-channel Telegram results)
   const userLower = normalize(username);
+  const expectedPath = normalize(platform.url + username);
   const match = results.find((item) => {
     const link = normalize(item.link || "");
-    const snippet = normalize(item.snippet || "");
-    const title = normalize(item.title || "");
-    return (
-      link.includes(platform.domain) &&
-      (link.includes(userLower) || snippet.includes(userLower) || title.includes(userLower))
-    );
+    // Must be on the right domain and contain the username in the URL path
+    return link.includes(platform.domain) && link.includes(userLower);
   });
 
+  // Extra validation: reject if the matched URL looks like a sub-page, not a profile
+  // e.g. t.me/s/google_nws?before=4054 is a channel post page, not a user profile
   if (!match) return null;
+  const matchedLink = normalize(match.link || "");
+  const expectedBase = normalize(platform.url);
+  // The link should start with the platform base URL + username (no deep paths)
+  // Allow some flexibility for case differences and trailing slashes
+  const looksLikeProfile = matchedLink.includes(expectedBase + userLower) ||
+    matchedLink.includes(expectedBase + encodeURIComponent(username).toLowerCase()) ||
+    matchedLink.includes(expectedBase + `@${userLower}`);
+  if (!looksLikeProfile) return null;
 
   const metadata = {
     name: match.title,
