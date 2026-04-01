@@ -167,13 +167,14 @@ const buildSearchQuery = (platform, username, fallback = false) => {
 };
 
 // ─── instagramCheck ──────────────────────────────────────────────────────────
-// Uses 3 strategies in sequence (server IPs are often blocked by IG's JSON API):
-//   1. Internal JSON API  (best data, often blocked from hosting IPs)
-//   2. Direct HTML scrape (IG renders og:title server-side for SEO — reliable)
-//   3. oEmbed API         (no auth needed, works for public profiles)
+// Instagram cannot be detected via HTML (JS-rendered, 200 for ALL URLs).
+// Strategies in order:
+//   1. JSON API  — best data, correct 404 for non-existent (rate-limited from servers)
+//   2. SerpAPI   — Google index confirms real profiles (requires SERPAPI_KEY)
+//   3. Redirect  — login redirect with ?next=/username/ = confirmed exists (server IPs)
 const instagramCheck = async (username) => {
   const profileUrl = `https://www.instagram.com/${encodeURIComponent(username)}/`;
-  const userLower = normalize(username);
+  const userLower  = normalize(username);
 
   const commonHeaders = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -181,6 +182,7 @@ const instagramCheck = async (username) => {
   };
 
   // ── Strategy 1: Internal JSON API ─────────────────────────────────────────
+  // Works perfectly: 404 = not found, 200+user = found. Rate-limited (429) from servers.
   try {
     const apiUrl = `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`;
     const res = await axios.get(apiUrl, {
@@ -216,46 +218,62 @@ const instagramCheck = async (username) => {
         };
       }
     }
-    // 401/403 = blocked from this IP → fall through to next strategy
+    // 401/403/429 = blocked/rate-limited → fall through to SerpAPI
   } catch { /* fall through */ }
 
-  // ── Strategy 2: Login-redirect detection ─────────────────────────────────
-  // From datacenter IPs, Instagram redirects existing accounts to:
-  //   https://www.instagram.com/accounts/login/?next=%2Fusername%2F
-  // Non-existent accounts return HTTP 404 BEFORE redirecting.
-  // So: 404 = not found, redirect with ?next=/username/ = account exists.
-  try {
-    const res = await axios.get(profileUrl, {
-      timeout: 12000,
-      maxRedirects: 0, // Don't follow — we want to inspect the redirect URL
-      headers: {
-        ...commonHeaders,
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      },
-      validateStatus: (s) => s < 500, // accept 3xx too
-    });
-
-    // 404 → account definitely does not exist
-    if (res.status === 404) return null;
-
-    // 3xx redirect → check if it's a login wall with username in ?next=
-    if (res.status >= 300 && res.status < 400) {
-      const location = normalize(res.headers?.location || "");
-      // e.g. /accounts/login/?next=%2F_princeboro_%2F
-      if (location.includes("accounts/login") && location.includes(encodeURIComponent(`/${username}/`).toLowerCase())) {
+  // ── Strategy 2: SerpAPI (Google index) ────────────────────────────────────
+  // Google only indexes real Instagram profiles. Searching site:instagram.com/username
+  // gives us a reliable signal: if Google found it, it's real.
+  if (process.env.SERPAPI_KEY) {
+    try {
+      const igPlatform = {
+        name: "Instagram",
+        url: "https://www.instagram.com/",
+        domain: "instagram.com",
+      };
+      // Use the existing serpApiFallback helper (declared later, hoisted via const — call directly)
+      const query = `site:instagram.com/${username}`;
+      const response = await axios.get("https://serpapi.com/search.json", {
+        params: { engine: "google", q: query, api_key: process.env.SERPAPI_KEY, num: 3 },
+        timeout: 10000,
+      });
+      const results = response.data?.organic_results || [];
+      const match = results.find((item) => {
+        const link = normalize(item.link || "");
+        // Must be instagram.com/username (not a post or tagged page)
+        return link.includes("instagram.com") && link.includes(userLower);
+      });
+      if (match) {
         return {
           platform: "Instagram",
           url: profileUrl,
           found: true,
-          source: "instagram-redirect",
+          source: "instagram-search",
           profileData: {
-            name: username,
-            visibilityScore: "low",
-            note: "Account exists — login required to view content",
+            name: match.title?.split(" ")?.[0] || username,
+            bio: match.snippet || null,
+            visibilityScore: "medium",
           },
         };
       }
-      // Also check un-encoded version
+    } catch { /* fall through */ }
+  }
+
+  // ── Strategy 3: Login-redirect detection ──────────────────────────────────
+  // From datacenter IPs Instagram redirects existing profiles to login?next=/username/
+  // Non-existent profiles return 404 before any redirect.
+  try {
+    const res = await axios.get(profileUrl, {
+      timeout: 10000,
+      maxRedirects: 0,
+      headers: { ...commonHeaders, "Accept": "text/html" },
+      validateStatus: (s) => s < 500,
+    });
+
+    if (res.status === 404) return null; // Confirmed not found
+
+    if (res.status >= 300 && res.status < 400) {
+      const location = normalize(res.headers?.location || "");
       if (location.includes("accounts/login") && location.includes(userLower)) {
         return {
           platform: "Instagram",
@@ -270,59 +288,30 @@ const instagramCheck = async (username) => {
         };
       }
     }
-
-    // 200 → Page served at the profile URL
-    // Debug confirmed: existing accounts → 200 at instagram.com/username/ (JS-rendered)
-    // Non-existent accounts → 404 or contains "sorry, this page isn't available"
-    // Instagram always sends title="Instagram" (JS-rendered) so we can't check title.
-    // A clean 200 with no error text = account confirmed ✅
-    if (res.status === 200) {
-      const html = safeHtml(res.data);
-      if (html.toLowerCase().includes("sorry, this page isn't available")) return null;
-      if (html.toLowerCase().includes("page not found")) return null;
-      return {
-        platform: "Instagram",
-        url: profileUrl,
-        found: true,
-        source: "instagram-direct",
-        profileData: {
-          name: username,
-          visibilityScore: "medium",
-          note: "Profile confirmed — login required to view full content",
-        },
-      };
+  } catch (e) {
+    // axios throws on 3xx when maxRedirects:0 — extract redirect location
+    if (e.response?.status >= 300 && e.response?.status < 400) {
+      const location = normalize(e.response.headers?.location || "");
+      if (location.includes("accounts/login") && location.includes(userLower)) {
+        return {
+          platform: "Instagram",
+          url: profileUrl,
+          found: true,
+          source: "instagram-redirect",
+          profileData: {
+            name: username,
+            visibilityScore: "low",
+            note: "Account exists — login required to view content",
+          },
+        };
+      }
     }
-  } catch { /* fall through */ }
+  }
 
-  // ── Strategy 3: oEmbed API ────────────────────────────────────────────────
-  // Public endpoint, no auth needed. Returns 404 for non-existent profiles.
-  try {
-    const oembedUrl = `https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent(profileUrl)}`;
-    const res = await axios.get(oembedUrl, {
-      timeout: 8000,
-      headers: { ...commonHeaders, "Accept": "application/json" },
-      validateStatus: (s) => s < 500,
-    });
-
-    if (res.status === 404) return null;
-    if (res.status === 200 && res.data?.author_name) {
-      return {
-        platform: "Instagram",
-        url: profileUrl,
-        found: true,
-        source: "instagram-oembed",
-        profileData: {
-          name: res.data.author_name || username,
-          avatar: res.data.thumbnail_url || null,
-          visibilityScore: "low",
-        },
-      };
-    }
-  } catch { /* fall through */ }
-
-  // All 3 strategies failed (likely IP-blocked) → return null (no fake data)
+  // All strategies failed → return null (no false positives)
   return null;
 };
+
 
 // ─── directCheck ─────────────────────────────────────────────────────────────
 // Improved logic:
