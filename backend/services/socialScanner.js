@@ -371,7 +371,6 @@ const directCheck = async (platform, username) => {
 
       // Strong signal 1: username appears at the START of og:title / page title
       // e.g. "Google · GitLab" ✓, "google - Twitch" ✓
-      // BUT NOT "Mike Google" ✗ or "Explore Google Profiles" ✗
       const titleStartsWithUser = titleLower.startsWith(userLower) ||
         titleLower.startsWith(`@${userLower}`) ||
         titleLower.includes(`(${userLower})`) ||
@@ -390,10 +389,13 @@ const directCheck = async (platform, username) => {
         };
       }
 
-      // Strong signal 2: username in URL + username also in title
-      // Requiring BOTH prevents false positives where someone else claimed the
-      // URL vanity name (Steam: screwloose48, AboutMe: Daniel Fontana)
-      if (finalUrl.includes(userLower) && titleStartsWithUser) {
+      // Strong signal 2: username appears ANYWHERE in title AND in the final URL.
+      // Handles usernames like "_princeboro_" which platforms may wrap mid-title
+      // e.g. "Check out _princeboro_ on GitHub" or "u/_princeboro_"
+      const titleContainsUser = titleLower.includes(userLower);
+      const urlContainsUser = finalUrl.includes(userLower);
+
+      if (titleContainsUser && urlContainsUser) {
         return {
           platform: platform.name,
           url: profileUrl,
@@ -406,7 +408,23 @@ const directCheck = async (platform, username) => {
         };
       }
 
-      // ⚠️ NO avatar+bio fallback — platforms like Telegram, Twitch, Steam
+      // Strong signal 3: URL contains the username AND page has real metadata.
+      // Only apply for platforms where vanity URL ownership is confirmed by a
+      // non-empty bio or avatar (proves it's not a generic homepage).
+      if (urlContainsUser && (metadata.avatar || metadata.bio)) {
+        return {
+          platform: platform.name,
+          url: profileUrl,
+          found: true,
+          source: "direct",
+          profileData: {
+            ...metadata,
+            visibilityScore: computeVisibilityScore(metadata),
+          },
+        };
+      }
+
+      // ⚠️ NO bare avatar+bio fallback — platforms like Telegram, Twitch, Steam
       // serve their own branding og:image/og:description on ALL pages,
       // including non-existent user pages, causing false positives.
       return null;
