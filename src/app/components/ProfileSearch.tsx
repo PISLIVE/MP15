@@ -1,5 +1,4 @@
-import { Search, Link2, Mail, User, Loader2 } from "lucide-react";
-import { Card } from "./ui/card";
+import { Search, Mail, User, AtSign, Loader2, ChevronDown, ChevronUp, Info } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { motion, AnimatePresence } from "motion/react";
@@ -11,114 +10,190 @@ interface ProfileSearchProps {
 }
 
 export function ProfileSearch({ onSearch, isLoading }: ProfileSearchProps) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchType, setSearchType] = useState<"url" | "email" | "username">("url");
+  const [expanded, setExpanded] = useState(false);
+  const [quick, setQuick]       = useState("");
+  const [username, setUsername] = useState("");
+  const [email, setEmail]       = useState("");
+  const [name, setName]         = useState("");
 
-  const handleSearch = () => {
-    if (searchQuery.trim()) {
-      onSearch(searchQuery);
-    }
+  const buildQuery = () => {
+    if (!expanded) return quick.trim();
+    const parts: string[] = [];
+    if (username.trim()) parts.push(`u:${username.trim()}`);
+    if (email.trim())    parts.push(`e:${email.trim()}`);
+    if (name.trim())     parts.push(`n:${name.trim()}`);
+    return parts.join(" | ");
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !isLoading) {
-      handleSearch();
-    }
+  const canSearch = () => {
+    if (!expanded) return quick.trim().length > 0;
+    return !!(username.trim() || email.trim() || name.trim());
   };
 
-  const detectSearchType = (value: string) => {
-    if (value.includes("@")) {
-      setSearchType("email");
-    } else if (value.includes("http") || value.includes("www")) {
-      setSearchType("url");
-    } else {
-      setSearchType("username");
-    }
-  };
+  const handleSearch = () => { if (canSearch() && !isLoading) onSearch(buildQuery()); };
+  const handleKey    = (e: React.KeyboardEvent) => { if (e.key === "Enter") handleSearch(); };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchQuery(value);
-    detectSearchType(value);
-  };
-
-  const getIcon = () => {
-    switch (searchType) {
-      case "email":
-        return <Mail className="w-4 h-4 text-gray-400" />;
-      case "url":
-        return <Link2 className="w-4 h-4 text-gray-400" />;
-      default:
-        return <User className="w-4 h-4 text-gray-400" />;
-    }
+  const toggleAdvanced = () => {
+    setExpanded(v => {
+      if (!v && quick.trim()) {
+        const t = quick.trim();
+        const isEmail    = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t);
+        const isUsername = !t.includes(" ") && /^[\w.\-]+$/.test(t); // \w includes _
+        if (isEmail)    { setEmail(t);    setUsername(""); setName(""); }
+        else if (isUsername) { setUsername(t); setEmail("");    setName(""); }
+        else            { setName(t);     setEmail("");    setUsername(""); }
+        setQuick("");
+      }
+      return !v;
+    });
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6 }}
-    >
-      <Card className="p-6 bg-gradient-to-br from-white to-blue-50/30 border-2 border-blue-200 shadow-xl">
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-lg font-semibold bg-gradient-to-r from-blue-900 to-indigo-900 bg-clip-text text-transparent mb-2">
-              Scan Digital Footprint
-            </h3>
-            <p className="text-sm text-gray-600">
-              Enter a profile URL, email address, or username to analyze
-            </p>
-          </div>
+    <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+      <div className="space-y-3">
 
-          <div className="flex gap-3">
-            <div className="flex-1 relative">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2">
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={searchType}
-                    initial={{ scale: 0, rotate: -180 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    exit={{ scale: 0, rotate: 180 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    {getIcon()}
-                  </motion.div>
-                </AnimatePresence>
+        {/* ── Simple quick search bar ── */}
+        <AnimatePresence>
+          {!expanded && (
+            <motion.div
+              key="simple"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex gap-2"
+            >
+              <div className="flex-1 relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <Search className="w-4 h-4" />
+                </div>
+                <Input
+                  type="text"
+                  placeholder="username, email, or full name…"
+                  value={quick}
+                  onChange={(e) => setQuick(e.target.value)}
+                  onKeyPress={handleKey}
+                  disabled={isLoading}
+                  className="pl-9 py-5 text-sm bg-white/10 border border-white/20 text-white placeholder:text-slate-400 focus:border-blue-400 rounded-xl transition-all"
+                  autoComplete="off"
+                />
               </div>
-              <Input
-                type="text"
-                placeholder="https://twitter.com/username or email@example.com"
-                value={searchQuery}
-                onChange={handleInputChange}
-                onKeyPress={handleKeyPress}
-                disabled={isLoading}
-                className="pl-10 pr-4 py-6 text-base border-2 border-gray-200 focus:border-blue-500 transition-colors"
-              />
-            </div>
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button
-                onClick={handleSearch}
-                disabled={isLoading || !searchQuery.trim()}
-                className="px-8 py-6 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Scanning...
-                  </>
-                ) : (
-                  <>
-                    <Search className="w-5 h-5 mr-2" />
-                    Scan Profile
-                  </>
-                )}
-              </Button>
+              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                <Button
+                  onClick={handleSearch}
+                  disabled={isLoading || !canSearch()}
+                  className="px-5 py-5 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl shadow-lg transition-all"
+                >
+                  {isLoading
+                    ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Scanning…</>
+                    : <><Search className="w-4 h-4 mr-1.5" />Scan Profile</>}
+                </Button>
+              </motion.div>
             </motion.div>
-          </div>
+          )}
+        </AnimatePresence>
 
+        {/* ── Advanced multi-field mode ── */}
+        <button
+          type="button"
+          onClick={toggleAdvanced}
+          className="flex items-center gap-1.5 text-[11px] font-medium text-blue-200/80 hover:text-blue-100 transition-colors ml-1"
+        >
+          {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          {expanded ? "Simple search" : "Advanced — combine username + email + name for full coverage"}
+        </button>
 
-        </div>
-      </Card>
+        <AnimatePresence>
+          {expanded && (
+            <motion.div
+              key="advanced"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="grid gap-2 pt-1">
+
+                {/* Username field */}
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-400">
+                    <AtSign className="w-3.5 h-3.5" />
+                  </div>
+                  <Input
+                    type="text"
+                    name="scan-username"
+                    placeholder="@username — scans GitHub, TikTok, Facebook, Reddit…"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    onKeyPress={handleKey}
+                    disabled={isLoading}
+                    autoComplete="off"
+                    className="pl-8 py-4 text-xs bg-white/10 border border-emerald-500/30 text-white placeholder:text-slate-500 focus:border-emerald-400 rounded-xl"
+                  />
+                </div>
+
+                {/* Email field */}
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-rose-400">
+                    <Mail className="w-3.5 h-3.5" />
+                  </div>
+                  <Input
+                    type="email"
+                    name="scan-email"
+                    placeholder="email@example.com — checks data breach & password leak databases"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onKeyPress={handleKey}
+                    disabled={isLoading}
+                    autoComplete="off"
+                    className="pl-8 py-4 text-xs bg-white/10 border border-rose-500/30 text-white placeholder:text-slate-500 focus:border-rose-400 rounded-xl"
+                  />
+                </div>
+
+                {/* Full name field */}
+                <div className="relative">
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400">
+                    <User className="w-3.5 h-3.5" />
+                  </div>
+                  <Input
+                    type="text"
+                    name="scan-name"
+                    placeholder="Full Name — searches public web, news, and social mentions"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    onKeyPress={handleKey}
+                    disabled={isLoading}
+                    autoComplete="off"
+                    className="pl-8 py-4 text-xs bg-white/10 border border-blue-500/30 text-white placeholder:text-slate-500 focus:border-blue-400 rounded-xl"
+                  />
+                </div>
+
+                {/* Scan button (advanced mode) */}
+                <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}>
+                  <Button
+                    onClick={handleSearch}
+                    disabled={isLoading || !canSearch()}
+                    className="w-full py-5 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl shadow-lg transition-all"
+                  >
+                    {isLoading
+                      ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Scanning…</>
+                      : <><Search className="w-4 h-4 mr-1.5" />Scan Profile</>}
+                  </Button>
+                </motion.div>
+
+                {/* Hint */}
+                <div className="flex items-start gap-1.5 ml-1">
+                  <Info className="w-3 h-3 text-slate-500 mt-0.5 shrink-0" />
+                  <p className="text-[10px] text-slate-500 leading-relaxed">
+                    Fill any combination. <span className="text-emerald-400/80">Username</span> scans social profiles ·{" "}
+                    <span className="text-rose-400/80">Email</span> checks breaches ·{" "}
+                    <span className="text-blue-400/80">Name</span> searches public web.
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </motion.div>
   );
 }

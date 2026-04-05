@@ -3,6 +3,7 @@ import { Login } from "./app/pages/Login";
 import { Dashboard } from "./app/pages/Dashboard";
 import { History } from "./app/pages/History";
 import { Settings } from "./app/pages/Settings";
+import { BreachMonitor } from "./app/pages/BreachMonitor";
 import ProtectedRoute from "./app/components/ProtectedRoute";
 import { Toaster } from "sonner";
 
@@ -33,6 +34,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Settings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/monitor"
+          element={
+            <ProtectedRoute>
+              <BreachMonitor />
             </ProtectedRoute>
           }
         />

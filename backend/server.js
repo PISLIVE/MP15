@@ -6,6 +6,8 @@ require("dotenv").config();
 
 const scanRoutes = require("./routes/scanRoutes");
 const settingsRoutes = require("./routes/settingsRoutes");
+const monitorRoutes = require("./routes/monitorRoutes");
+const { startMonitorCron } = require("./services/monitorService");
 
 const app = express();
 
@@ -63,9 +65,12 @@ app.get("/", (req, res) => {
 
 app.use("/api", scanRoutes);
 app.use("/api/settings", settingsRoutes);
+app.use("/api/monitor", monitorRoutes);
 
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Secure Server running on port ${PORT}`);
+  // Start daily breach monitoring cron (runs at 08:00 AM)
+  startMonitorCron();
 });

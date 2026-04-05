@@ -1,58 +1,151 @@
 const axios = require("axios");
+const crypto = require("crypto");
 
-// Determine severity from the list of exposed field names
-function computeSeverity(fields = []) {
-  const f = fields.map((x) => x.toLowerCase());
-  const critical = ["password", "plaintext", "hash", "credit_card", "ssn", "cvv", "pin"];
-  const high = ["phone", "address", "dob", "date_of_birth", "passport", "national_id"];
-  if (f.some((x) => critical.includes(x))) return "high";
-  if (f.some((x) => high.includes(x))) return "medium";
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+function computeSeverity(fields = [], passwordRisk = "") {
+  const f = fields.map((x) => x.toLowerCase()).join(" ");
+  const risk = (passwordRisk || "").toLowerCase();
+
+  if (
+    f.includes("password") ||
+    f.includes("credit") ||
+    f.includes("ssn") ||
+    f.includes("cvv") ||
+    f.includes("pin") ||
+    risk === "plaintext"
+  )
+    return "high";
+
+  if (
+    f.includes("phone") ||
+    f.includes("address") ||
+    f.includes("birth") ||
+    f.includes("passport") ||
+    f.includes("national")
+  )
+    return "medium";
+
   return "low";
 }
 
-// Detect password type from exposed fields
-function detectPasswordType(fields = []) {
-  const f = fields.map((x) => x.toLowerCase());
-  if (f.includes("plaintext")) return "plaintext";
-  if (f.includes("hash")) {
-    // Try to read hash type hint from source if available, default to "hash"
-    return "hash";
-  }
-  if (f.includes("password")) return "unknown";
+function mapPasswordRisk(risk = "") {
+  const r = (risk || "").toLowerCase();
+  if (r === "plaintext") return "plaintext";
+  if (r === "easytocrack") return "weak hash";
+  if (r === "hardtocrack") return "strong hash";
+  if (r === "stronghash") return "strong hash";
   return null;
 }
 
-// Map raw field names to friendlier labels
-function friendlyFieldLabel(field) {
+function friendlyField(field = "") {
+  const f = field.toLowerCase().trim();
   const map = {
+    "email addresses": "Email Address",
+    "email address": "Email Address",
+    emails: "Email Address",
+    passwords: "Password",
     password: "Password",
-    plaintext: "Password (Plaintext)",
-    hash: "Password Hash",
-    email: "Email Address",
-    phone: "Phone Number",
+    usernames: "Username",
     username: "Username",
+    "phone numbers": "Phone Number",
+    "phone number": "Phone Number",
+    names: "Full Name",
     name: "Full Name",
-    address: "Home Address",
+    "dates of birth": "Date of Birth",
+    "date of birth": "Date of Birth",
     dob: "Date of Birth",
-    date_of_birth: "Date of Birth",
-    ip: "IP Address",
-    credit_card: "Credit Card",
-    ssn: "Social Security Number",
-    cvv: "CVV",
-    pin: "PIN",
-    national_id: "National ID",
-    passport: "Passport Number",
-    geolocation: "Geolocation",
+    "ip addresses": "IP Address",
+    "ip address": "IP Address",
+    "geographic locations": "Location",
+    location: "Location",
+    "credit card": "Credit Card",
+    "profile photos": "Profile Photo",
+    "social media profiles": "Social Media Profile",
+    genders: "Gender",
     gender: "Gender",
-    employer: "Employer",
-    education: "Education",
-    social: "Social Media",
+    "physical addresses": "Home Address",
+    address: "Home Address",
   };
-  return map[field.toLowerCase()] || field.charAt(0).toUpperCase() + field.slice(1);
+  return map[f] || field.charAt(0).toUpperCase() + field.slice(1);
 }
 
-const breachService = async (query, type = "email") => {
-  if (!query) return [];
+// ─────────────────────────────────────────────────────────────────────────────
+// SOURCE 1: XposedOrNot (100% free, no API key, comprehensive)
+// Endpoint: https://api.xposedornot.com/v1/breach-analytics?email=<email>
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function checkXposedOrNot(email) {
+  try {
+    const response = await axios.get(
+      `https://api.xposedornot.com/v1/breach-analytics`,
+      {
+        params: { email },
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "DigitalFootprintAnalyzer/1.0",
+        },
+        timeout: 12000,
+      }
+    );
+
+    const data = response.data;
+
+    // "Not found" response = clean email
+    if (data?.Error === "Not found" || !data?.ExposedBreaches) {
+      return [];
+    }
+
+    const breachDetails = data.ExposedBreaches?.breaches_details || [];
+
+    return breachDetails.map((item, index) => {
+      const rawFields = (item.xposed_data || "")
+        .split(";")
+        .map((f) => f.trim())
+        .filter(Boolean);
+
+      const friendlyFields = rawFields.map(friendlyField);
+      const passwordRisk = item.password_risk || "";
+
+      return {
+        id: String(index + 1),
+        platform: item.breach || "Unknown",
+        date: item.xposed_date ? String(item.xposed_date) : null,
+        severity: computeSeverity(rawFields, passwordRisk),
+        dataExposed: friendlyFields,
+        recordCount:
+          typeof item.xposed_records === "number" ? item.xposed_records : null,
+        passwordType: mapPasswordRisk(passwordRisk),
+        description: item.details || null,
+        domain: item.domain || null,
+        verified: item.verified === "Yes" || item.verified === true,
+        source: "xposedornot",
+      };
+    });
+  } catch (error) {
+    if (error?.response?.status === 404) {
+      // 404 = email not found in any breach (clean)
+      return [];
+    }
+    console.error(
+      "XposedOrNot error:",
+      error?.response?.status,
+      error?.message
+    );
+    throw error; // propagate so fallback can run
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SOURCE 2: LeakCheck (free tier — 50 queries/day, existing key)
+// Endpoint: https://leakcheck.io/api/v2/query/<query>?type=<type>
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function checkLeakCheck(query, type = "email") {
+  const key = process.env.LEAKCHECK_API_KEY;
+  if (!key) return [];
 
   try {
     const response = await axios.get(
@@ -60,7 +153,7 @@ const breachService = async (query, type = "email") => {
       {
         headers: {
           Accept: "application/json",
-          "X-API-Key": process.env.LEAKCHECK_API_KEY,
+          "X-API-Key": key,
         },
         timeout: 10000,
       }
@@ -70,7 +163,7 @@ const breachService = async (query, type = "email") => {
 
     return results.map((item, index) => {
       const rawFields = item.fields || [];
-      const friendlyFields = rawFields.map(friendlyFieldLabel);
+      const friendlyFields = rawFields.map((f) => friendlyField(f));
 
       return {
         id: String(index + 1),
@@ -79,17 +172,75 @@ const breachService = async (query, type = "email") => {
         severity: computeSeverity(rawFields),
         dataExposed: friendlyFields,
         recordCount: item.source?.pwned_count || null,
-        passwordType: detectPasswordType(rawFields),
+        passwordType: rawFields.includes("plaintext")
+          ? "plaintext"
+          : rawFields.includes("hash")
+          ? "hash"
+          : null,
+        source: "leakcheck",
       };
     });
   } catch (error) {
-    if (error.response) {
-      console.error("LeakCheck API error:", error.response.status, error.response.data);
+    const status = error?.response?.status;
+    if (status === 403 || status === 401) {
+      // Key expired or plan ended — silently skip, XposedOrNot is primary
+      console.warn("[Breach] LeakCheck key inactive (403). Skipping.");
     } else {
-      console.error("LeakCheck request error:", error.message);
+      console.error("LeakCheck error:", status, error?.message);
     }
     return [];
   }
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MERGE: deduplicate by platform name across both sources
+// ─────────────────────────────────────────────────────────────────────────────
+
+function mergeBreaches(primary, fallback) {
+  const seen = new Set(primary.map((b) => b.platform?.toLowerCase()));
+  const unique = fallback.filter(
+    (b) => !seen.has(b.platform?.toLowerCase())
+  );
+  return [
+    ...primary,
+    ...unique.map((b, i) => ({ ...b, id: String(primary.length + i + 1) })),
+  ];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN EXPORT: Multi-source breach service
+// ─────────────────────────────────────────────────────────────────────────────
+
+const breachService = async (query, type = "email") => {
+  if (!query) return [];
+
+  const isEmail = type === "email" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(query);
+
+  let xonResults = [];
+  let lcResults = [];
+
+  // XposedOrNot works only for email addresses
+  if (isEmail) {
+    try {
+      xonResults = await checkXposedOrNot(query);
+      console.log(
+        `[Breach] XposedOrNot: ${xonResults.length} results for ${query}`
+      );
+    } catch (_err) {
+      console.warn("[Breach] XposedOrNot failed, trying LeakCheck fallback…");
+    }
+  }
+
+  // Always try LeakCheck as secondary/fallback for any query type
+  lcResults = await checkLeakCheck(query, type);
+  console.log(
+    `[Breach] LeakCheck: ${lcResults.length} results for ${query}`
+  );
+
+  const merged = mergeBreaches(xonResults, lcResults);
+  console.log(`[Breach] Total after merge: ${merged.length}`);
+  return merged;
 };
 
-module.exports = breachService;
+module.exports = breachService;

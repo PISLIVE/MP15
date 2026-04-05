@@ -15,6 +15,7 @@ import {
   Moon,
   Settings,
   Download,
+  Bell,
 } from "lucide-react";
 
 import html2canvas from "html2canvas";
@@ -64,36 +65,45 @@ function getUserInitials(name?: string | null, email?: string | null) {
 
 function parseQuery(query: string) {
   const trimmed = query.trim();
-
   if (!trimmed) return {};
 
+  // ── Advanced multi-field format from ProfileSearch: "u:username | e:email | n:name" ──
+  if (trimmed.includes(" | ") || /^[une]:/.test(trimmed)) {
+    const parts = trimmed.split(" | ").map(p => p.trim()).filter(Boolean);
+    const result: { username?: string; email?: string; name?: string } = {};
+    for (const part of parts) {
+      if (part.startsWith("u:")) result.username = part.slice(2).trim();
+      if (part.startsWith("e:")) result.email = part.slice(2).trim();
+      if (part.startsWith("n:")) result.name = part.slice(2).trim();
+    }
+    return result;
+  }
+
+  // ── Simple single-field detection ──
   if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
     return { email: trimmed };
   }
 
   if (trimmed.includes("linkedin.com/in/")) {
     const match = trimmed.match(/linkedin\.com\/in\/([^/?#]+)/i);
-    return {
-      username: match?.[1] || trimmed,
-      name: trimmed,
-    };
+    return { username: match?.[1] || trimmed, name: trimmed };
   }
 
   if (/^https?:\/\//i.test(trimmed)) {
     const parts = trimmed.split("/").filter(Boolean);
     const lastPart = parts[parts.length - 1];
-    return {
-      username: lastPart || trimmed,
-      name: trimmed,
-    };
+    return { username: lastPart || trimmed, name: trimmed };
   }
 
-  if (!trimmed.includes(" ") && /^[a-zA-Z0-9._-]+$/.test(trimmed)) {
+  // No spaces + only URL-safe chars (including underscore) → treat as username
+  if (!trimmed.includes(" ") && /^[\w.\-]+$/.test(trimmed)) {
     return { username: trimmed };
   }
 
+  // Has spaces → full name
   return { name: trimmed };
 }
+
 
 function buildRecommendations(scanData: ScanData | null): Recommendation[] {
   const recommendations = [];
@@ -258,22 +268,22 @@ export function Dashboard() {
     try {
       setIsExporting(true);
       toast.info("Generating PDF report...");
-      
-      const canvas = await html2canvas(element, { 
+
+      const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
         logging: false
       });
-      
+
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF("p", "mm", "a4");
-      
+
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
+
       pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
       pdf.save(`DigitalFootprint_${displayName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
-      
+
       toast.success("PDF Report Exported!");
     } catch (error) {
       console.error("PDF generation failed:", error);
@@ -374,12 +384,23 @@ export function Dashboard() {
             <Button
               variant="outline"
               size="icon"
+              onClick={() => navigate("/monitor")}
+              className="rounded-xl border-slate-300 bg-white/80 dark:border-slate-700 dark:bg-slate-800/80 relative"
+              title="Breach Monitor"
+            >
+              <Bell className="h-4 w-4" />
+            </Button>
+
+            <Button
+              variant="outline"
+              size="icon"
               onClick={() => navigate("/settings")}
               className="rounded-xl border-slate-300 bg-white/80 dark:border-slate-700 dark:bg-slate-800/80"
               title="Settings"
             >
               <Settings className="h-4 w-4" />
             </Button>
+
 
             <Button
               variant="outline"
@@ -538,8 +559,8 @@ export function Dashboard() {
                 {scanData?.whoisResults && (
                   <section className="rounded-[28px] border border-white/40 dark:border-slate-800/50 bg-white/40 dark:bg-slate-950/40 backdrop-blur-3xl p-4 shadow-[0_8px_32px_rgba(31,38,135,0.07)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3)] sm:p-6 mb-6">
                     <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-                       <Globe className="h-5 w-5 text-indigo-600"/> 
-                       Domain Registry (WHOIS)
+                      <Globe className="h-5 w-5 text-indigo-600" />
+                      Domain Registry (WHOIS)
                     </h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="rounded-2xl bg-indigo-50/50 p-4 border border-indigo-100/50">
@@ -563,15 +584,15 @@ export function Dashboard() {
                 )}
 
                 <section id="report-content" className="rounded-[28px] border border-white/40 dark:border-slate-800/50 bg-white/40 dark:bg-slate-950/40 backdrop-blur-3xl p-4 shadow-[0_8px_32px_rgba(31,38,135,0.07)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3)] sm:p-6 relative">
-                  
+
                   {/* EXPORT BUTTON */}
                   <div className="absolute top-4 right-4 sm:top-6 sm:right-6">
-                    <Button 
-                      onClick={handleExportPDF} 
+                    <Button
+                      onClick={handleExportPDF}
                       disabled={isExporting}
                       className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg shadow-indigo-200"
                     >
-                      {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin"/> : <Download className="h-4 w-4 mr-2"/> }
+                      {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
                       Export PDF
                     </Button>
                   </div>
@@ -767,4 +788,4 @@ export function Dashboard() {
       </main>
     </div>
   );
-}
+}

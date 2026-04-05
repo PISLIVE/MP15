@@ -20,27 +20,24 @@ export interface SocialResult {
 
 export interface BreachResult {
   id?: string;
-  // Fields mapped by breachService.js (LeakCheck API)
   platform?: string;
   date?: string;
   severity?: "high" | "medium" | "low";
   dataExposed?: string[];
   recordCount?: number;
   passwordType?: string;
-  // HIBP-style fields (future use)
+  // XposedOrNot fields
+  description?: string;
+  domain?: string;
+  verified?: boolean;
+  source?: "xposedornot" | "leakcheck" | string;
+  // Legacy / future fields
   name?: string;
   title?: string;
-  domain?: string;
   breachDate?: string;
   addedDate?: string;
-  description?: string;
   dataClasses?: string[];
   isVerified?: boolean;
-  isFabricated?: boolean;
-  isSensitive?: boolean;
-  isRetired?: boolean;
-  isSpamList?: boolean;
-  logoPath?: string;
   [key: string]: unknown;
 }
 

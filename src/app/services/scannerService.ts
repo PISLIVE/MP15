@@ -3,8 +3,13 @@ import { supabase } from "../lib/supabase";
 
 const API_URL = (import.meta as any).env?.VITE_API_URL ?? "http://localhost:5000/api";
 
-// Helper: get the current session token and return an axios config with it
+// Helper: get a valid (auto-refreshed) session token
 const getAuthHeaders = async () => {
+  // getUser() triggers a silent token refresh if the access_token is expired
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return {};
+
+  // After getUser(), getSession() will have the refreshed access_token
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
   return token ? { Authorization: `Bearer ${token}` } : {};

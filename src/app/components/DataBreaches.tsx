@@ -4,7 +4,6 @@ import {
   Calendar,
   Database,
   ShieldAlert,
-  CheckCircle2,
   ExternalLink,
   ChevronDown,
   ChevronUp,
@@ -17,6 +16,8 @@ import {
   CreditCard,
   Fingerprint,
   Users,
+  BadgeCheck,
+  Link,
 } from "lucide-react";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -143,15 +144,22 @@ function BreachCard({ breach, index }: { breach: BreachResult; index: number }) 
                   <span>{(breach.recordCount / 1000000).toFixed(1)}M records</span>
                 </div>
               )}
-              <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                <span className="font-medium">Verified Incident</span>
-              </div>
+              {breach.verified !== false && (
+                <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                  <BadgeCheck className="h-3.5 w-3.5" />
+                  <span className="font-medium">Verified Breach</span>
+                </div>
+              )}
             </div>
+            {breach.description && (
+              <p className="mt-3 text-xs leading-relaxed text-slate-500 dark:text-slate-400 line-clamp-3">
+                {breach.description}
+              </p>
+            )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
            <Button 
             variant="ghost" 
             size="sm" 
@@ -161,7 +169,18 @@ function BreachCard({ breach, index }: { breach: BreachResult; index: number }) 
             <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
             Verify on HIBP
           </Button>
-        </div>
+          {breach.domain && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 rounded-lg text-slate-500 hover:text-indigo-600 dark:text-slate-400"
+              onClick={() => window.open(`https://${breach.domain}`, '_blank')}
+            >
+              <Link className="h-3.5 w-3.5 mr-1.5" />
+              {breach.domain}
+            </Button>
+          )}
+          </div>
       </div>
 
       <div className="mt-5">
