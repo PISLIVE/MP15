@@ -11,17 +11,17 @@ interface ProfileSearchProps {
 
 export function ProfileSearch({ onSearch, isLoading }: ProfileSearchProps) {
   const [expanded, setExpanded] = useState(false);
-  const [quick, setQuick]       = useState("");
+  const [quick, setQuick] = useState("");
   const [username, setUsername] = useState("");
-  const [email, setEmail]       = useState("");
-  const [name, setName]         = useState("");
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
 
   const buildQuery = () => {
     if (!expanded) return quick.trim();
     const parts: string[] = [];
     if (username.trim()) parts.push(`u:${username.trim()}`);
-    if (email.trim())    parts.push(`e:${email.trim()}`);
-    if (name.trim())     parts.push(`n:${name.trim()}`);
+    if (email.trim()) parts.push(`e:${email.trim()}`);
+    if (name.trim()) parts.push(`n:${name.trim()}`);
     return parts.join(" | ");
   };
 
@@ -31,17 +31,17 @@ export function ProfileSearch({ onSearch, isLoading }: ProfileSearchProps) {
   };
 
   const handleSearch = () => { if (canSearch() && !isLoading) onSearch(buildQuery()); };
-  const handleKey    = (e: React.KeyboardEvent) => { if (e.key === "Enter") handleSearch(); };
+  const handleKey = (e: React.KeyboardEvent) => { if (e.key === "Enter") handleSearch(); };
 
   const toggleAdvanced = () => {
     setExpanded(v => {
       if (!v && quick.trim()) {
         const t = quick.trim();
-        const isEmail    = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t);
+        const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t);
         const isUsername = !t.includes(" ") && /^[\w.\-]+$/.test(t); // \w includes _
-        if (isEmail)    { setEmail(t);    setUsername(""); setName(""); }
-        else if (isUsername) { setUsername(t); setEmail("");    setName(""); }
-        else            { setName(t);     setEmail("");    setUsername(""); }
+        if (isEmail) { setEmail(t); setUsername(""); setName(""); }
+        else if (isUsername) { setUsername(t); setEmail(""); setName(""); }
+        else { setName(t); setEmail(""); setUsername(""); }
         setQuick("");
       }
       return !v;

@@ -7,6 +7,7 @@ require("dotenv").config();
 const scanRoutes = require("./routes/scanRoutes");
 const settingsRoutes = require("./routes/settingsRoutes");
 const monitorRoutes = require("./routes/monitorRoutes");
+const reportRoutes = require("./routes/reportRoutes");
 const { startMonitorCron } = require("./services/monitorService");
 
 const app = express();
@@ -66,6 +67,7 @@ app.get("/", (req, res) => {
 app.use("/api", scanRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/monitor", monitorRoutes);
+app.use("/api/report", reportRoutes);
 
 const PORT = process.env.PORT || 5000;
 

@@ -1,19 +1,35 @@
 const axios = require("axios");
 
+// Flag to stop calling Google Search during a single scan if quota is hit
+let isSearchQuotaExhausted = false;
+
+
 // ─── Platform registry ────────────────────────────────────────────────────────
 // strategy:
 //   "instagram-api" → dedicated Instagram JSON endpoint
 //   "direct"        → reliable HTTP HEAD/GET check
 //   "skip"          → cannot be reliably checked without a paid API (no SerpAPI = skip)
 const platforms = [
+  // ── High Priority (Popular) ────────────────────────────────────────────────
   { name: "Instagram", url: "https://www.instagram.com/", domain: "instagram.com", strategy: "instagram-api" },
   { name: "GitHub", url: "https://github.com/", domain: "github.com", strategy: "direct" },
   { name: "Reddit", url: "https://www.reddit.com/user/", domain: "reddit.com", strategy: "direct" },
-  { name: "GitLab", url: "https://gitlab.com/", domain: "gitlab.com", strategy: "direct" },
+  { name: "LinkedIn", url: "https://www.linkedin.com/in/", domain: "linkedin.com", strategy: "search" },
+  { name: "X", url: "https://x.com/", domain: "x.com", strategy: "search" },
+  { name: "Twitter", url: "https://twitter.com/", domain: "twitter.com", strategy: "search" },
   { name: "YouTube", url: "https://www.youtube.com/@", domain: "youtube.com", strategy: "direct" },
+  { name: "Facebook", url: "https://www.facebook.com/", domain: "facebook.com", strategy: "facebook" },
+  { name: "TikTok", url: "https://www.tiktok.com/@", domain: "tiktok.com", strategy: "tiktok" },
+  { name: "Telegram", url: "https://t.me/", domain: "t.me", strategy: "telegram" },
+  { name: "Snapchat", url: "https://www.snapchat.com/add/", domain: "snapchat.com", strategy: "snapchat" },
+  { name: "Threads", url: "https://www.threads.net/@", domain: "threads.net", strategy: "threads" },
+  { name: "Spotify", url: "https://open.spotify.com/user/", domain: "spotify.com", strategy: "search" },
+  { name: "Pinterest", url: "https://www.pinterest.com/", domain: "pinterest.com", strategy: "direct" },
   { name: "Twitch", url: "https://www.twitch.tv/", domain: "twitch.tv", strategy: "direct" },
   { name: "Medium", url: "https://medium.com/@", domain: "medium.com", strategy: "direct" },
-  { name: "Pinterest", url: "https://www.pinterest.com/", domain: "pinterest.com", strategy: "direct" },
+  
+  // ── Standard Priority ──────────────────────────────────────────────────────
+  { name: "GitLab", url: "https://gitlab.com/", domain: "gitlab.com", strategy: "direct" },
   { name: "SoundCloud", url: "https://soundcloud.com/", domain: "soundcloud.com", strategy: "direct" },
   { name: "Vimeo", url: "https://vimeo.com/", domain: "vimeo.com", strategy: "direct" },
   { name: "Keybase", url: "https://keybase.io/", domain: "keybase.io", strategy: "direct" },
@@ -26,19 +42,6 @@ const platforms = [
   { name: "Mastodon", url: "https://mastodon.social/@", domain: "mastodon.social", strategy: "direct" },
   { name: "Gravatar", url: "https://en.gravatar.com/", domain: "gravatar.com", strategy: "direct" },
   { name: "AboutMe", url: "https://about.me/", domain: "about.me", strategy: "direct" },
-  // ── Platforms that block all scraping without a paid API ──────────────────
-  // These return null to avoid false positives. Add SerpAPI key to enable them.
-  // ── Heavy platforms — dedicated checkers (no Google CSE waste) ──────────────
-  { name: "Facebook",  url: "https://www.facebook.com/",       domain: "facebook.com",  strategy: "facebook"  },
-  { name: "TikTok",   url: "https://www.tiktok.com/@",         domain: "tiktok.com",   strategy: "tiktok"   },
-  { name: "Telegram", url: "https://t.me/",                     domain: "t.me",         strategy: "telegram" },
-  { name: "Threads",  url: "https://www.threads.net/@",         domain: "threads.net",  strategy: "threads"  },
-  { name: "Snapchat", url: "https://www.snapchat.com/add/",    domain: "snapchat.com", strategy: "snapchat" },
-  // ── Fully auth-walled — Google CSE only ────────────────────────────────────
-  { name: "X",        url: "https://x.com/",                   domain: "x.com",        strategy: "search"   },
-  { name: "Twitter",  url: "https://twitter.com/",             domain: "twitter.com",  strategy: "search"   },
-  { name: "LinkedIn", url: "https://www.linkedin.com/in/",     domain: "linkedin.com", strategy: "search"   },
-  { name: "Spotify",  url: "https://open.spotify.com/user/",  domain: "spotify.com",  strategy: "search"   },
 ];
 
 // ─── Patterns that prove a page is a "not found" / error page ─────────────────
@@ -119,6 +122,16 @@ const isLoginWallUrl = (url) => {
   return LOGIN_WALL_URL_PATTERNS.some((p) => lower.includes(p));
 };
 
+// Returns a version of the string with all non-alphanumeric characters removed
+const stripSpecials = (str) => String(str || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+// Check if username (fuzzy) exists in source text
+const fuzzyContains = (source, username) => {
+  const s = stripSpecials(source);
+  const u = stripSpecials(username);
+  return u.length > 0 && s.includes(u);
+};
+
 // ─── Metadata extraction ─────────────────────────────────────────────────────
 function extractMetadata(html) {
   const result = {};
@@ -176,19 +189,21 @@ const buildSearchQuery = (platform, username, fallback = false) => {
 //   3. Redirect  — login redirect with ?next=/username/ = confirmed exists (server IPs)
 const instagramCheck = async (username) => {
   const profileUrl = `https://www.instagram.com/${encodeURIComponent(username)}/`;
-  const userLower  = normalize(username);
+  const userLower = normalize(username);
 
   const commonHeaders = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Accept-Language": "en-US,en;q=0.9",
   };
 
+  if (process.env.DEBUG_SCANNER === "true") console.log(`[Instagram] Checking ${username}...`);
+
   // ── Strategy 1: Internal JSON API ─────────────────────────────────────────
   // Works perfectly: 404 = not found, 200+user = found. Rate-limited (429) from servers.
   try {
     const apiUrl = `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`;
     const res = await axios.get(apiUrl, {
-      timeout: 10000,
+      timeout: 8000,
       headers: {
         ...commonHeaders,
         "X-IG-App-ID": "936619743392459",
@@ -203,6 +218,7 @@ const instagramCheck = async (username) => {
     if (res.status === 200) {
       const user = res.data?.data?.user;
       if (user) {
+        if (process.env.DEBUG_SCANNER === "true") console.log(`[Instagram] Found via API: ${username}`);
         return {
           platform: "Instagram",
           url: profileUrl,
@@ -220,8 +236,11 @@ const instagramCheck = async (username) => {
         };
       }
     }
+    if (process.env.DEBUG_SCANNER === "true") console.log(`[Instagram] API strategy skipped (Status: ${res.status})`);
     // 401/403/429 = blocked/rate-limited → fall through to SerpAPI
-  } catch { /* fall through */ }
+  } catch (err) { 
+    if (process.env.DEBUG_SCANNER === "true") console.log(`[Instagram] API strategy failed: ${err.message}`);
+  }
 
   // ── Strategy 2: Google CSE (Google index confirms real profiles) ─────────────
   // Google only indexes real Instagram profiles. Searching site:instagram.com/username
@@ -265,7 +284,7 @@ const instagramCheck = async (username) => {
   // og:title for existing profile: "Name (@username) • Instagram photos and videos"
   try {
     const res = await axios.get(profileUrl, {
-      timeout: 12000,
+      timeout: 6000,
       maxRedirects: 5,
       headers: { ...commonHeaders, "Accept": "text/html,application/xhtml+xml" },
       validateStatus: (s) => s < 500,
@@ -277,12 +296,15 @@ const instagramCheck = async (username) => {
     const titleLower = normalize(metadata.name || "");
     // Real profile title: "Cristiano Ronaldo (@cristiano) • Instagram"
     if (titleLower.includes(userLower) && titleLower.includes("instagram")) {
+      if (process.env.DEBUG_SCANNER === "true") console.log(`[Instagram] Found via HTML: ${username}`);
       return {
         platform: "Instagram", url: profileUrl, found: true, source: "instagram-html",
         profileData: { ...metadata, visibilityScore: computeVisibilityScore(metadata) },
       };
     }
-  } catch { /* fall through */ }
+  } catch (err) { 
+    if (process.env.DEBUG_SCANNER === "true") console.log(`[Instagram] HTML strategy failed: ${err.message}`);
+  }
 
   // ── Strategy 3: Login-redirect detection ──────────────────────────────────
 
@@ -290,7 +312,7 @@ const instagramCheck = async (username) => {
   // Non-existent profiles return 404 before any redirect.
   try {
     const res = await axios.get(profileUrl, {
-      timeout: 10000,
+      timeout: 6000,
       maxRedirects: 0,
       headers: { ...commonHeaders, "Accept": "text/html" },
       validateStatus: (s) => s < 500,
@@ -300,7 +322,8 @@ const instagramCheck = async (username) => {
 
     if (res.status >= 300 && res.status < 400) {
       const location = normalize(res.headers?.location || "");
-      if (location.includes("accounts/login") && location.includes(userLower)) {
+      if (location.includes("accounts/login") && (location.includes(userLower) || location.includes(encodeURIComponent(userLower)))) {
+        if (process.env.DEBUG_SCANNER === "true") console.log(`[Instagram] Found via redirect: ${username}`);
         return {
           platform: "Instagram",
           url: profileUrl,
@@ -352,7 +375,7 @@ const directCheck = async (platform, username) => {
 
   try {
     const response = await axios.get(profileUrl, {
-      timeout: 12000,
+      timeout: 6000,
       maxRedirects: 5,
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -396,13 +419,14 @@ const directCheck = async (platform, username) => {
       const userLower = normalize(username);
 
       // Strong signal 1: username appears at the START of og:title / page title
-      // e.g. "Google · GitLab" ✓, "google - Twitch" ✓
+      // Handles "@username", "(username)", etc.
       const titleStartsWithUser = titleLower.startsWith(userLower) ||
         titleLower.startsWith(`@${userLower}`) ||
         titleLower.includes(`(${userLower})`) ||
         titleLower.includes(`(@${userLower})`);
 
       if (titleStartsWithUser) {
+        if (process.env.DEBUG_SCANNER === "true") console.log(`[Direct] ${platform.name} confirmed via title-prefix: ${username}`);
         return {
           platform: platform.name,
           url: profileUrl,
@@ -418,10 +442,11 @@ const directCheck = async (platform, username) => {
       // Strong signal 2: username appears ANYWHERE in title AND in the final URL.
       // Handles usernames like "_princeboro_" which platforms may wrap mid-title
       // e.g. "Check out _princeboro_ on GitHub" or "u/_princeboro_"
-      const titleContainsUser = titleLower.includes(userLower);
-      const urlContainsUser = finalUrl.includes(userLower);
+      const titleContainsUser = titleLower.includes(userLower) || fuzzyContains(titleLower, userLower);
+      const urlContainsUser = finalUrl.includes(userLower) || finalUrl.includes(encodeURIComponent(userLower)) || fuzzyContains(finalUrl, userLower);
 
       if (titleContainsUser && urlContainsUser) {
+        if (process.env.DEBUG_SCANNER === "true") console.log(`[Direct] ${platform.name} confirmed via title+url: ${username}`);
         return {
           platform: platform.name,
           url: profileUrl,
@@ -437,7 +462,8 @@ const directCheck = async (platform, username) => {
       // Strong signal 3: URL contains the username AND page has real metadata.
       // Only apply for platforms where vanity URL ownership is confirmed by a
       // non-empty bio or avatar (proves it's not a generic homepage).
-      if (urlContainsUser && (metadata.avatar || metadata.bio)) {
+      if ((urlContainsUser || fuzzyContains(finalUrl, userLower)) && (metadata.avatar || metadata.bio)) {
+        if (process.env.DEBUG_SCANNER === "true") console.log(`[Direct] ${platform.name} confirmed via metadata: ${username}`);
         return {
           platform: platform.name,
           url: profileUrl,
@@ -450,9 +476,9 @@ const directCheck = async (platform, username) => {
         };
       }
 
-      // ⚠️ NO bare avatar+bio fallback — platforms like Telegram, Twitch, Steam
-      // serve their own branding og:image/og:description on ALL pages,
-      // including non-existent user pages, causing false positives.
+      if (process.env.DEBUG_SCANNER === "true") {
+        console.log(`[Direct] ${platform.name} rejected: Validation mismatch for "${username}". Title: "${metadata.name}". URL: ${finalUrl}`);
+      }
       return null;
     }
 
@@ -468,11 +494,10 @@ const directCheck = async (platform, username) => {
 // Falls back gracefully if quota is exceeded.
 const serpApiFallback = async (platform, username) => {
   const apiKey = process.env.GOOGLE_API_KEY;
-  const cx    = process.env.GOOGLE_SEARCH_ENGINE_ID;
+  const cx = process.env.GOOGLE_SEARCH_ENGINE_ID;
 
-  // No keys → return null. Do NOT fall back to directCheck for these platforms
-  // because they block scraping and cause false positives.
-  if (!apiKey || !cx) return null;
+  // No keys OR quota already hit in this session → return null
+  if (!apiKey || !cx || isSearchQuotaExhausted) return null;
 
   const trySearch = async (query) => {
     try {
@@ -483,7 +508,8 @@ const serpApiFallback = async (platform, username) => {
       return response.data?.items || [];
     } catch (e) {
       if (e.response?.status === 429 || e.response?.status === 403) {
-        console.warn("Google CSE quota exceeded for platform search.");
+        console.warn("Google Search quota exceeded. Skipping further search fallbacks for this scan.");
+        isSearchQuotaExhausted = true; // Set flag to stop further attempts
       }
       return [];
     }
@@ -540,7 +566,7 @@ const serpApiFallback = async (platform, username) => {
 // Non-existent usernames still redirect but to a generic login without ?next=/username.
 const facebookCheck = async (username) => {
   const profileUrl = `https://www.facebook.com/${encodeURIComponent(username)}`;
-  const userLower  = normalize(username);
+  const userLower = normalize(username);
   const headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml",
@@ -551,23 +577,27 @@ const facebookCheck = async (username) => {
     const loc = normalize(location || "");
     // login redirect whose ?next= contains the username → profile exists
     return (loc.includes("/login") || loc.includes("login.php")) &&
-           (loc.includes(encodeURIComponent(userLower)) || loc.includes(userLower));
+      (loc.includes(encodeURIComponent(userLower)) || loc.includes(userLower));
   };
 
   try {
     const res = await axios.get(profileUrl, {
-      timeout: 12000, maxRedirects: 0,
+      timeout: 8000, maxRedirects: 0,
       headers, validateStatus: (s) => s < 500,
     });
     if (res.status === 404) return null;
     if (res.status >= 300 && res.status < 400 && checkRedirect(res.headers?.location)) {
-      return { platform: "Facebook", url: profileUrl, found: true, source: "facebook-redirect",
-        profileData: { name: username, visibilityScore: "low", note: "Profile exists — login required to view" } };
+      return {
+        platform: "Facebook", url: profileUrl, found: true, source: "facebook-redirect",
+        profileData: { name: username, visibilityScore: "low", note: "Profile exists — login required to view" }
+      };
     }
   } catch (e) {
     if (e.response?.status >= 300 && e.response?.status < 400 && checkRedirect(e.response?.headers?.location)) {
-      return { platform: "Facebook", url: profileUrl, found: true, source: "facebook-redirect",
-        profileData: { name: username, visibilityScore: "low", note: "Profile exists — login required to view" } };
+      return {
+        platform: "Facebook", url: profileUrl, found: true, source: "facebook-redirect",
+        profileData: { name: username, visibilityScore: "low", note: "Profile exists — login required to view" }
+      };
     }
   }
   // Fallback to Google CSE
@@ -577,10 +607,10 @@ const facebookCheck = async (username) => {
 // ─── TikTok Check ────────────────────────────────────────────────────────────
 const tiktokCheck = async (username) => {
   const profileUrl = `https://www.tiktok.com/@${encodeURIComponent(username)}`;
-  const userLower  = normalize(username);
+  const userLower = normalize(username);
   try {
     const res = await axios.get(profileUrl, {
-      timeout: 12000, maxRedirects: 5,
+      timeout: 8000, maxRedirects: 5,
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
@@ -599,18 +629,20 @@ const tiktokCheck = async (username) => {
     const html = safeHtml(res.data);
     // TikTok injects statusCode 10202 for non-existent accounts
     if (html.includes('"statusCode":10202') || html.includes('statuscode":10202') ||
-        html.toLowerCase().includes("couldn't find this account") ||
-        html.toLowerCase().includes("user not found")) return null;
+      html.toLowerCase().includes("couldn't find this account") ||
+      html.toLowerCase().includes("user not found")) return null;
 
     if (res.status === 200) {
       const metadata = extractMetadata(html);
       const titleLower = normalize(metadata.name || "");
       // TikTok title: "@username | TikTok" or "Name (@username)"
       if (titleLower.includes(userLower) || titleLower.includes(`@${userLower}`) ||
-          html.toLowerCase().includes(`"@${userLower}"`) ||
-          html.toLowerCase().includes(`/@${userLower}"`)) {
-        return { platform: "TikTok", url: profileUrl, found: true, source: "direct",
-          profileData: { ...metadata, visibilityScore: computeVisibilityScore(metadata) } };
+        html.toLowerCase().includes(`"@${userLower}"`) ||
+        html.toLowerCase().includes(`/@${userLower}"`)) {
+        return {
+          platform: "TikTok", url: profileUrl, found: true, source: "direct",
+          profileData: { ...metadata, visibilityScore: computeVisibilityScore(metadata) }
+        };
       }
     }
   } catch { /* fall through */ }
@@ -622,10 +654,10 @@ const tiktokCheck = async (username) => {
 // t.me renders a public preview page for existing channels/users.
 const telegramCheck = async (username) => {
   const profileUrl = `https://t.me/${encodeURIComponent(username)}`;
-  const userLower  = normalize(username);
+  const userLower = normalize(username);
   try {
     const res = await axios.get(profileUrl, {
-      timeout: 12000, maxRedirects: 5,
+      timeout: 6000, maxRedirects: 5,
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         "Accept": "text/html",
@@ -639,8 +671,10 @@ const telegramCheck = async (username) => {
       const metadata = extractMetadata(html);
       // Extra check: OG title must not be just "Telegram"
       if (metadata.name && normalize(metadata.name) !== "telegram") {
-        return { platform: "Telegram", url: `https://t.me/${username}`, found: true, source: "direct",
-          profileData: { ...metadata, visibilityScore: computeVisibilityScore(metadata) } };
+        return {
+          platform: "Telegram", url: `https://t.me/${username}`, found: true, source: "direct",
+          profileData: { ...metadata, visibilityScore: computeVisibilityScore(metadata) }
+        };
       }
     }
   } catch { /* fall through */ }
@@ -650,10 +684,10 @@ const telegramCheck = async (username) => {
 // ─── Threads Check ───────────────────────────────────────────────────────────
 const threadsCheck = async (username) => {
   const profileUrl = `https://www.threads.net/@${encodeURIComponent(username)}`;
-  const userLower  = normalize(username);
+  const userLower = normalize(username);
   try {
     const res = await axios.get(profileUrl, {
-      timeout: 12000, maxRedirects: 5,
+      timeout: 6000, maxRedirects: 5,
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         "Accept": "text/html",
@@ -666,8 +700,10 @@ const threadsCheck = async (username) => {
     const metadata = extractMetadata(html);
     const titleLower = normalize(metadata.name || "");
     if (titleLower.includes(userLower) || titleLower.includes(`@${userLower}`)) {
-      return { platform: "Threads", url: profileUrl, found: true, source: "direct",
-        profileData: { ...metadata, visibilityScore: computeVisibilityScore(metadata) } };
+      return {
+        platform: "Threads", url: profileUrl, found: true, source: "direct",
+        profileData: { ...metadata, visibilityScore: computeVisibilityScore(metadata) }
+      };
     }
   } catch { /* fall through */ }
   return serpApiFallback({ name: "Threads", url: "https://www.threads.net/@", domain: "threads.net" }, username);
@@ -677,10 +713,10 @@ const threadsCheck = async (username) => {
 // snapchat.com/add/{username} shows a public profile preview page.
 const snapchatCheck = async (username) => {
   const profileUrl = `https://www.snapchat.com/add/${encodeURIComponent(username)}`;
-  const userLower  = normalize(username);
+  const userLower = normalize(username);
   try {
     const res = await axios.get(profileUrl, {
-      timeout: 12000, maxRedirects: 5,
+      timeout: 6000, maxRedirects: 5,
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         "Accept": "text/html",
@@ -694,8 +730,10 @@ const snapchatCheck = async (username) => {
     const titleLower = normalize(metadata.name || "");
     // Snapchat page title for existing user: "username's Snapchat" or similar
     if (titleLower.includes(userLower)) {
-      return { platform: "Snapchat", url: profileUrl, found: true, source: "direct",
-        profileData: { ...metadata, visibilityScore: computeVisibilityScore(metadata) } };
+      return {
+        platform: "Snapchat", url: profileUrl, found: true, source: "direct",
+        profileData: { ...metadata, visibilityScore: computeVisibilityScore(metadata) }
+      };
     }
   } catch { /* fall through */ }
   return serpApiFallback({ name: "Snapchat", url: "https://www.snapchat.com/add/", domain: "snapchat.com" }, username);
@@ -703,15 +741,15 @@ const snapchatCheck = async (username) => {
 
 // ─── Platform dispatcher ──────────────────────────────────────────────────────
 const checkPlatform = async (platform, username) => {
-  if (platform.strategy === "skip")          return null;
+  if (platform.strategy === "skip") return null;
   if (platform.strategy === "instagram-api") return instagramCheck(username);
-  if (platform.strategy === "facebook")      return facebookCheck(username);
-  if (platform.strategy === "tiktok")        return tiktokCheck(username);
-  if (platform.strategy === "telegram")      return telegramCheck(username);
-  if (platform.strategy === "threads")       return threadsCheck(username);
-  if (platform.strategy === "snapchat")      return snapchatCheck(username);
-  if (platform.strategy === "direct")        return directCheck(platform, username);
-  if (platform.strategy === "search")        return serpApiFallback(platform, username);
+  if (platform.strategy === "facebook") return facebookCheck(username);
+  if (platform.strategy === "tiktok") return tiktokCheck(username);
+  if (platform.strategy === "telegram") return telegramCheck(username);
+  if (platform.strategy === "threads") return threadsCheck(username);
+  if (platform.strategy === "snapchat") return snapchatCheck(username);
+  if (platform.strategy === "direct") return directCheck(platform, username);
+  if (platform.strategy === "search") return serpApiFallback(platform, username);
 
   // hybrid: try direct first, fall back to Google CSE
   const direct = await directCheck(platform, username);
@@ -736,11 +774,22 @@ const socialScanner = async (username) => {
   const cleanUsername = normalize(username);
   if (!cleanUsername) return [];
 
-  const results = await Promise.all(
-    platforms.map((p) => checkPlatform(p, cleanUsername))
-  );
+  // Reset quota exhaustion flag for EACH new scan request
+  isSearchQuotaExhausted = false;
 
-  return deduplicateResults(results.filter(Boolean));
+  // Batch platforms into chunks of 10 to avoid network congestion and bot detection
+  const results = [];
+  const BATCH_SIZE = 10;
+  
+  for (let i = 0; i < platforms.length; i += BATCH_SIZE) {
+    const batch = platforms.slice(i, i + BATCH_SIZE);
+    const batchResults = await Promise.all(
+      batch.map((p) => checkPlatform(p, cleanUsername))
+    );
+    results.push(...batchResults.filter(Boolean));
+  }
+
+  return deduplicateResults(results);
 };
 
 module.exports = socialScanner;

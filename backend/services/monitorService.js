@@ -1,6 +1,6 @@
 const nodemailer = require("nodemailer");
-const axios      = require("axios");
-const cron       = require("node-cron");
+const axios = require("axios");
+const cron = require("node-cron");
 const { supabase } = require("../config/database");
 
 // ─── Email Transporter ───────────────────────────────────────────────────────
@@ -129,11 +129,11 @@ const checkOneEmail = async (record) => {
       ? []
       : (data.ExposedBreaches?.breaches_details || []);
 
-    const totalCount  = breachDetails.length;
+    const totalCount = breachDetails.length;
     const breachNames = breachDetails.map((b) => b.breach || b.domain || "Unknown");
 
     const knownNames = Array.isArray(known_breach_names) ? known_breach_names : [];
-    const newOnes    = breachDetails.filter((b) => {
+    const newOnes = breachDetails.filter((b) => {
       const name = b.breach || b.domain || "Unknown";
       return !knownNames.includes(name);
     });

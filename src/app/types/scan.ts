@@ -88,6 +88,7 @@ export interface ScanData {
   googleResults: GoogleResult[];
   mentionResults: MentionResult[];
   riskScore: RiskScore;
+  aiSummary?: string;
 }
 
 export interface ScanHistoryItem {
@@ -99,6 +100,7 @@ export interface ScanHistoryItem {
   breach_results: BreachResult[] | null;
   google_results: GoogleResult[] | null;
   mention_results: MentionResult[] | null;
+  ai_summary?: string | null;
 }
 
 export interface Recommendation {

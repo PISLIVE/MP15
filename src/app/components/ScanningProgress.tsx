@@ -18,10 +18,10 @@ const scanSteps: ScanStep[] = [
 ];
 
 interface ScanningProgressProps {
-  onComplete: () => void;
+  isBackendComplete: boolean;
 }
 
-export function ScanningProgress({ onComplete }: ScanningProgressProps) {
+export function ScanningProgress({ isBackendComplete }: ScanningProgressProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
 
@@ -33,15 +33,13 @@ export function ScanningProgress({ onComplete }: ScanningProgressProps) {
       }, scanSteps[currentStep].duration);
 
       return () => clearTimeout(timer);
-    } else {
-      const finalTimer = setTimeout(() => {
-        onComplete();
-      }, 1000);
-      return () => clearTimeout(finalTimer);
-    }
+    } 
+    // We stay at the final step (currentStep === scanSteps.length) 
+    // and wait for isBackendComplete to be true before finishing visually if needed
   }, [currentStep]);
 
-  const progress = ((currentStep) / scanSteps.length) * 100;
+  const isWaiting = currentStep === scanSteps.length && !isBackendComplete;
+  const progress = isWaiting ? 95 : ((currentStep) / scanSteps.length) * 100;
 
   return (
     <motion.div
@@ -61,10 +59,10 @@ export function ScanningProgress({ onComplete }: ScanningProgressProps) {
             <Loader2 className="w-8 h-8 text-white" />
           </motion.div>
           <h3 className="text-xl font-bold mb-2 bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-            Scanning Digital Footprint
+            {isWaiting ? "Finalizing Report" : "Scanning Digital Footprint"}
           </h3>
           <p className="text-sm text-gray-600">
-            Analyzing online presence and security...
+            {isWaiting ? "Generating AI security insights..." : "Analyzing online presence and security..."}
           </p>
         </div>
 
@@ -118,6 +116,21 @@ export function ScanningProgress({ onComplete }: ScanningProgressProps) {
               </motion.div>
             );
           })}
+          {isWaiting && (
+             <motion.div
+               initial={{ opacity: 0 }}
+               animate={{ opacity: 1 }}
+               className="flex items-center gap-3 p-3 rounded-lg bg-indigo-50 border-2 border-indigo-200"
+             >
+               <div className="p-2 rounded-lg bg-indigo-600">
+                 <Sparkles className="w-4 h-4 text-white" />
+               </div>
+               <div className="flex-1 text-sm font-medium text-gray-900">
+                 Generating AI Insights
+               </div>
+               <Loader2 className="w-4 h-4 text-indigo-600 animate-spin" />
+             </motion.div>
+          )}
         </div>
 
         <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -129,7 +142,7 @@ export function ScanningProgress({ onComplete }: ScanningProgressProps) {
           />
         </div>
         <p className="text-center text-sm text-gray-600 mt-2">
-          {Math.round(progress)}% Complete
+          {isWaiting ? "Almost there..." : `${Math.round(progress)}% Complete`}
         </p>
       </Card>
     </motion.div>

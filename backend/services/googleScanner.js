@@ -1,58 +1,81 @@
 const axios = require("axios");
 
 /**
- * Searches Google via Custom Search API (100 free requests/day)
- * using the existing GOOGLE_API_KEY + GOOGLE_SEARCH_ENGINE_ID env vars.
+ * Hybrid Search: Tries Google CSE first (100/day limit).
+ * If it fails or returns 0 results (due to "entire web" restriction),
+ * it falls back to SerpAPI (100/month limit).
  */
 const googleScanner = async (name, username) => {
   const query = [name, username].filter(Boolean).join(" ").trim();
-
   if (!query) return [];
 
-  const apiKey = process.env.GOOGLE_API_KEY;
-  const cx    = process.env.GOOGLE_SEARCH_ENGINE_ID;
+  const googleKey = process.env.GOOGLE_API_KEY;
+  const googleCx  = process.env.GOOGLE_SEARCH_ENGINE_ID;
+  const serpKey   = process.env.SERPAPI_KEY;
 
-  if (!apiKey || !cx) {
-    console.error("Missing GOOGLE_API_KEY or GOOGLE_SEARCH_ENGINE_ID");
-    return [];
+  // --- Step 1: Try Google Custom Search (Free 100/day) ---
+  if (googleKey && googleCx) {
+    try {
+      console.log(`[Google Scanner] Trying Google CSE for: ${query}`);
+      const response = await axios.get("https://www.googleapis.com/customsearch/v1", {
+        params: { key: googleKey, cx: googleCx, q: query, num: 10, safe: "active" },
+        timeout: 8000,
+      });
+      
+      const items = response.data?.items || [];
+      if (items.length > 0) {
+        console.log(`✅ Found ${items.length} results via Google CSE`);
+        return items.map((item, index) => ({
+          id: String(index + 1),
+          title: item.title || "Untitled",
+          link: item.link || "",
+          snippet: item.snippet || "No snippet available",
+        }));
+      }
+      console.log("[Google Scanner] Google CSE returned 0 results (possibly due to site restrictions).");
+    } catch (error) {
+      const status = error.response?.status;
+      if (status === 403 || status === 429) {
+        console.warn(`⚠️ Google CSE quota/config issue (${status}). Falling back to SerpAPI...`);
+      } else {
+        console.warn(`⚠️ Google CSE error: ${error.message}`);
+      }
+    }
   }
 
-  try {
-    const response = await axios.get("https://www.googleapis.com/customsearch/v1", {
-      params: {
-        key: apiKey,
-        cx,
-        q: query,
-        num: 10,
-        safe: "active",
-      },
-      timeout: 10000,
-    });
+  // --- Step 2: Fallback to SerpAPI (Limited 100/month) ---
+  if (serpKey && serpKey !== "your_serpapi_key_here") {
+    try {
+      console.log(`[Google Scanner] Falling back to SerpAPI for: ${query}`);
+      const response = await axios.get("https://serpapi.com/search", {
+        params: {
+          api_key: serpKey,
+          engine: "google",
+          q: query,
+          google_domain: "google.com",
+          gl: "us",
+          hl: "en",
+        },
+        timeout: 10000,
+      });
 
-    const items = response.data?.items || [];
-
-    return items.map((item, index) => ({
-      id: String(index + 1),
-      title:   item.title   || "Untitled result",
-      link:    item.link    || "",
-      snippet: item.snippet || "No snippet available",
-    }));
-  } catch (error) {
-    const status = error.response?.status;
-    if (status === 429 || status === 403) {
-      console.warn("Google CSE daily quota exhausted (403/429).");
-      // Throw a special quota error so the controller can warn the user
-      const err = new Error("Google Search quota exhausted for today. Results will resume tomorrow.");
-      err.code = "QUOTA_EXHAUSTED";
-      throw err;
+      const organic = response.data?.organic_results || [];
+      if (organic.length > 0) {
+        console.log(`✅ Found ${organic.length} results via SerpAPI`);
+        return organic.slice(0, 10).map((item, index) => ({
+          id: `s-${index + 1}`,
+          title: item.title || "Untitled",
+          link: item.link || "",
+          snippet: item.snippet || "No snippet available",
+        }));
+      }
+      console.log("[Google Scanner] SerpAPI also returned 0 results.");
+    } catch (error) {
+      console.error(`❌ SerpAPI error: ${error.message}`);
     }
-    if (error.response) {
-      console.error("Google CSE error:", status, JSON.stringify(error.response.data));
-    } else {
-      console.error("Google CSE request error:", error.message);
-    }
-    return [];
   }
+
+  return [];
 };
 
 module.exports = googleScanner;

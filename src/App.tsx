@@ -4,6 +4,7 @@ import { Dashboard } from "./app/pages/Dashboard";
 import { History } from "./app/pages/History";
 import { Settings } from "./app/pages/Settings";
 import { BreachMonitor } from "./app/pages/BreachMonitor";
+import { SharedReport } from "./app/pages/SharedReport";
 import ProtectedRoute from "./app/components/ProtectedRoute";
 import { Toaster } from "sonner";
 
@@ -45,10 +46,12 @@ function App() {
             </ProtectedRoute>
           }
         />
+        {/* PUBLIC — no login required */}
+        <Route path="/report/:id" element={<SharedReport />} />
       </Routes>
       <Toaster richColors position="top-right" />
     </>
   );
 }
 
-export default App;
+export default App;

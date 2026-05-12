@@ -1,20 +1,16 @@
 const axios = require("axios");
 
 /**
- * Scans for public mentions of a name or username across social platforms
- * using Google Custom Search API (100 free requests/day).
+ * Scans for public mentions across social platforms.
+ * Tries Google CSE (site-restricted) first, then falls back to SerpAPI for broad discovery.
  */
 const mentionScanner = async (name, username) => {
   const identifiers = [name, username].filter(Boolean);
   if (identifiers.length === 0) return [];
 
-  const apiKey = process.env.GOOGLE_API_KEY;
-  const cx    = process.env.GOOGLE_SEARCH_ENGINE_ID;
-
-  if (!apiKey || !cx) {
-    console.error("Missing GOOGLE_API_KEY or GOOGLE_SEARCH_ENGINE_ID");
-    return [];
-  }
+  const googleKey = process.env.GOOGLE_API_KEY;
+  const googleCx  = process.env.GOOGLE_SEARCH_ENGINE_ID;
+  const serpKey   = process.env.SERPAPI_KEY;
 
   const platforms = [
     { domain: "reddit.com",    name: "Reddit" },
@@ -25,58 +21,56 @@ const mentionScanner = async (name, username) => {
     { domain: "threads.net",   name: "Threads" },
     { domain: "linkedin.com",  name: "LinkedIn" },
     { domain: "github.com",    name: "GitHub" },
-    { domain: "medium.com",    name: "Medium" },
   ];
 
-  const runSearch = async (query) => {
+  const idQuery = identifiers.map(id => `"${id}"`).join(" OR ");
+  const siteQuery = `(${idQuery}) (` + platforms.map(p => `site:${p.domain}`).join(" OR ") + ")";
+
+  let searchItems = [];
+
+  // --- Step 1: Try Google CSE (Site Restricted - should still work) ---
+  if (googleKey && googleCx) {
     try {
-      const response = await axios.get("https://www.googleapis.com/customsearch/v1", {
-        params: {
-          key: apiKey,
-          cx,
-          q: query,
-          num: 10,
-          safe: "active",
-        },
-        timeout: 10000,
+      console.log("[Mention Scanner] Trying Google CSE (Site-restricted)...");
+      const res = await axios.get("https://www.googleapis.com/customsearch/v1", {
+        params: { key: googleKey, cx: googleCx, q: siteQuery, num: 10 },
+        timeout: 8000,
       });
-      return response.data?.items || [];
+      searchItems = res.data?.items || [];
     } catch (e) {
-      if (e.response) {
-        console.error("Google CSE mention error:", e.response.status, JSON.stringify(e.response.data));
-      } else {
-        console.error("Google CSE mention request error:", e.message);
-      }
-      return [];
+      console.warn(`[Mention Scanner] Google CSE failed: ${e.message}`);
     }
-  };
-
-  // Build query: ("Name" OR "username") (site:reddit.com OR site:twitter.com ...)
-  const idQuery    = identifiers.map(id => `"${id}"`).join(" OR ");
-  const siteQuery  = `(${idQuery}) (` + platforms.map(p => `site:${p.domain}`).join(" OR ") + ")";
-
-  let results = await runSearch(siteQuery);
-
-  // Fallback: broader search if platform query returns nothing
-  if (results.length === 0) {
-    const broadQuery = identifiers.join(" ") + " social media";
-    results = await runSearch(broadQuery);
   }
 
-  return results.map((item, index) => {
-    const lowerLink     = (item.link || "").toLowerCase();
-    const platformMatch = platforms.find(p => lowerLink.includes(p.domain));
-    const platform      = platformMatch ? platformMatch.name : "Other";
+  // --- Step 2: Fallback to SerpAPI for broad discovery ---
+  if (searchItems.length === 0 && serpKey && serpKey !== "your_serpapi_key_here") {
+    try {
+      console.log("[Mention Scanner] Falling back to SerpAPI for broad discovery...");
+      const broadQuery = identifiers.join(" ") + " social media profile";
+      const res = await axios.get("https://serpapi.com/search", {
+        params: { api_key: serpKey, engine: "google", q: broadQuery, num: 10 },
+        timeout: 10000,
+      });
+      searchItems = res.data?.organic_results || [];
+    } catch (e) {
+      console.error(`[Mention Scanner] SerpAPI failed: ${e.message}`);
+    }
+  }
 
+  return searchItems.map((item, index) => {
+    const link = item.link || "";
+    const platformMatch = platforms.find(p => link.toLowerCase().includes(p.domain));
+    
     return {
-      id:       `m-${index + 1}`,
-      platform,
-      title:    item.title   || "Social Mention",
-      snippet:  item.snippet || "No preview available",
-      link:     item.link    || "#",
-      date:     item.pagemap?.newsarticle?.[0]?.datepublished || "Recently indexed",
+      id: `m-${index + 1}`,
+      platform: platformMatch ? platformMatch.name : "Other",
+      title: item.title || "Social Mention",
+      snippet: item.snippet || "No preview available",
+      link: link || "#",
+      date: item.pagemap?.newsarticle?.[0]?.datepublished || "Recent",
     };
   });
 };
 
 module.exports = mentionScanner;
+

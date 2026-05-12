@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase";
 
-const API_BASE_URL = "http://localhost:5000/api/settings";
+const API_URL = (import.meta as any).env?.VITE_API_URL ?? "http://localhost:5000/api";
+const API_BASE_URL = `${API_URL}/settings`;
 
 export interface UserSettings {
   notifications_enabled: boolean;

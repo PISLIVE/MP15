@@ -81,7 +81,8 @@
     "postcss": "^8.5.8",
     "supabase": "^2.76.16",
     "tailwindcss": "^4.1.12",
-    "vite": "^6.4.1"
+    "vite": "^6.4.1",
+    "vite-plugin-pwa": "^1.2.0"
   },
   "peerDependencies": {
     "react": "18.3.1",

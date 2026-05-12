@@ -16,6 +16,10 @@ import {
   Settings,
   Download,
   Bell,
+  Share2,
+  Copy,
+  Check,
+  Loader2,
 } from "lucide-react";
 
 import html2canvas from "html2canvas";
@@ -32,6 +36,7 @@ import { EmptyState } from "../components/EmptyState";
 import { ActivityChart } from "../components/ActivityChart";
 import { ParticleBackground } from "../components/ParticleBackground";
 import { SocialMentions } from "../components/SocialMentions";
+import { EmailIntelligence } from "../components/EmailIntelligence";
 
 import { Button } from "../components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
@@ -39,6 +44,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { AnimatePresence } from "motion/react";
 
 import { scanProfile, getScanHistory } from "../services/scannerService";
+import { createSharedReport } from "../services/reportService";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
@@ -211,6 +217,10 @@ export function Dashboard() {
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [shareLink, setShareLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [currentQuery, setCurrentQuery] = useState<string>("");
 
   const loadHistory = async () => {
     setIsHistoryLoading(true);
@@ -227,7 +237,30 @@ export function Dashboard() {
     }
   };
 
+  const handleShare = async () => {
+    if (!scanData) return;
+    setSharing(true);
+    try {
+      const res = await createSharedReport(scanData, currentQuery);
+      if (res.success) {
+        const url = `${window.location.origin}/report/${res.id}`;
+        setShareLink(url);
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 3000);
+        toast.success("Report link copied to clipboard!");
+      } else {
+        toast.error(res.message || "Failed to create share link");
+      }
+    } catch {
+      toast.error("Failed to generate share link");
+    } finally {
+      setSharing(false);
+    }
+  };
+
   useEffect(() => {
+
     loadHistory();
   }, []);
 
@@ -236,6 +269,8 @@ export function Dashboard() {
     setHasScanned(false);
     setScanError(null);
     setScanWarnings([]);
+    setShareLink(null); // reset share link on new scan
+    setCurrentQuery(query);
 
     try {
       const payload = parseQuery(query);
@@ -345,7 +380,7 @@ export function Dashboard() {
       <ParticleBackground />
       <AnimatePresence>
         {isScanning && (
-          <ScanningProgress onComplete={() => setIsScanning(false)} />
+          <ScanningProgress isBackendComplete={hasScanned || !!scanError} />
         )}
       </AnimatePresence>
 
@@ -515,6 +550,29 @@ export function Dashboard() {
                   </div>
                 </section>
 
+                {/* AI SECURITY INSIGHT */}
+                {scanData?.aiSummary && (
+                  <section className="rounded-[28px] border border-blue-200/50 dark:border-blue-900/30 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-blue-900/10 dark:to-indigo-900/10 backdrop-blur-3xl p-6 shadow-xl shadow-blue-900/5 dark:shadow-none">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 p-2.5 text-white shadow-lg shadow-blue-200 dark:shadow-none">
+                        <Sparkles className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">AI Security Analysis</h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Expert insight generated from your latest scan results</p>
+                      </div>
+                    </div>
+                    <div className="relative rounded-2xl bg-white/60 dark:bg-slate-900/60 p-5 border border-white/40 dark:border-slate-800/50">
+                      <div className="absolute top-0 right-0 p-3 opacity-10">
+                        <Shield className="h-12 w-12 text-blue-600" />
+                      </div>
+                      <div className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">
+                        {scanData.aiSummary}
+                      </div>
+                    </div>
+                  </section>
+                )}
+
                 <section className="grid gap-6 lg:grid-cols-2">
                   <SectionCard title="Risk Summary" icon={Shield}>
                     <div className="grid grid-cols-2 gap-3">
@@ -585,8 +643,19 @@ export function Dashboard() {
 
                 <section id="report-content" className="rounded-[28px] border border-white/40 dark:border-slate-800/50 bg-white/40 dark:bg-slate-950/40 backdrop-blur-3xl p-4 shadow-[0_8px_32px_rgba(31,38,135,0.07)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3)] sm:p-6 relative">
 
-                  {/* EXPORT BUTTON */}
-                  <div className="absolute top-4 right-4 sm:top-6 sm:right-6">
+                  {/* ACTION BUTTONS */}
+                  <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex items-center gap-2">
+                    {/* Share Report */}
+                    <Button
+                      onClick={handleShare}
+                      disabled={sharing || !scanData}
+                      variant="outline"
+                      className="border-slate-300 bg-white/80 dark:border-slate-700 dark:bg-slate-800/80 rounded-xl"
+                    >
+                      {sharing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : copied ? <Check className="h-4 w-4 mr-2 text-green-500" /> : <Share2 className="h-4 w-4 mr-2" />}
+                      {copied ? "Copied!" : "Share"}
+                    </Button>
+                    {/* Export PDF */}
                     <Button
                       onClick={handleExportPDF}
                       disabled={isExporting}
@@ -613,6 +682,9 @@ export function Dashboard() {
                         <TabsTrigger value="mentions" className="rounded-xl px-4 py-2">Activity Feed</TabsTrigger>
                         <TabsTrigger value="security" className="rounded-xl px-4 py-2">Security</TabsTrigger>
                         <TabsTrigger value="search" className="rounded-xl px-4 py-2">Search Results</TabsTrigger>
+                        {scanData?.input?.email && (
+                          <TabsTrigger value="email" className="rounded-xl px-4 py-2 text-blue-600 font-bold bg-blue-50 dark:bg-blue-900/30">Email Intelligence</TabsTrigger>
+                        )}
                         <TabsTrigger value="recommendations" className="rounded-xl px-4 py-2">Recommendations</TabsTrigger>
                       </TabsList>
                     </div>
@@ -703,6 +775,15 @@ export function Dashboard() {
                     <TabsContent value="security" className="mt-0">
                       <DataBreaches breaches={scanData?.breachResults ?? []} />
                     </TabsContent>
+
+                    {scanData?.input?.email && (
+                      <TabsContent value="email" className="mt-0">
+                        <EmailIntelligence 
+                          emailResults={scanData.emailResults} 
+                          breaches={scanData?.breachResults ?? []} 
+                        />
+                      </TabsContent>
+                    )}
 
                     <TabsContent value="recommendations" className="mt-0">
                       <Recommendations recommendations={recommendations} />

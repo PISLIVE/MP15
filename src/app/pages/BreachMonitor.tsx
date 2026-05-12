@@ -21,10 +21,10 @@ interface MonitoredEmail {
 
 const StatusBadge = ({ status, count }: { status: string; count: number }) => {
   const map: Record<string, { label: string; classes: string; icon: React.ReactNode }> = {
-    safe:      { label: "Safe",       classes: "bg-emerald-50 text-emerald-700 border-emerald-200",    icon: <ShieldCheck className="w-3.5 h-3.5" /> },
-    breached:  { label: `${count} Breach${count !== 1 ? "es" : ""}`, classes: "bg-red-50 text-red-700 border-red-200", icon: <ShieldAlert className="w-3.5 h-3.5" /> },
-    new_breach:{ label: "🆕 New Breach!", classes: "bg-orange-50 text-orange-700 border-orange-200 animate-pulse", icon: <AlertTriangle className="w-3.5 h-3.5" /> },
-    pending:   { label: "Pending",    classes: "bg-slate-50 text-slate-500 border-slate-200",          icon: <Clock className="w-3.5 h-3.5" /> },
+    safe: { label: "Safe", classes: "bg-emerald-50 text-emerald-700 border-emerald-200", icon: <ShieldCheck className="w-3.5 h-3.5" /> },
+    breached: { label: `${count} Breach${count !== 1 ? "es" : ""}`, classes: "bg-red-50 text-red-700 border-red-200", icon: <ShieldAlert className="w-3.5 h-3.5" /> },
+    new_breach: { label: "🆕 New Breach!", classes: "bg-orange-50 text-orange-700 border-orange-200 animate-pulse", icon: <AlertTriangle className="w-3.5 h-3.5" /> },
+    pending: { label: "Pending", classes: "bg-slate-50 text-slate-500 border-slate-200", icon: <Clock className="w-3.5 h-3.5" /> },
   };
   const s = map[status] || map["pending"];
   return (
@@ -36,11 +36,11 @@ const StatusBadge = ({ status, count }: { status: string; count: number }) => {
 
 export function BreachMonitor() {
   const navigate = useNavigate();
-  const [list, setList]           = useState<MonitoredEmail[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [email, setEmail]         = useState("");
-  const [adding, setAdding]       = useState(false);
-  const [checking, setChecking]   = useState<string | null>(null);
+  const [list, setList] = useState<MonitoredEmail[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [email, setEmail] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [checking, setChecking] = useState<string | null>(null);
 
   const load = async () => {
     try {
@@ -135,7 +135,7 @@ export function BreachMonitor() {
           {[
             { label: "Watching", value: list.length, icon: <Mail className="w-4 h-4 text-blue-400" />, color: "from-blue-500/10 to-indigo-500/10 border-blue-500/20" },
             { label: "Breached", value: totalBreached, icon: <ShieldAlert className="w-4 h-4 text-red-400" />, color: "from-red-500/10 to-rose-500/10 border-red-500/20" },
-            { label: "Safe",     value: list.filter(r => r.status === "safe").length, icon: <ShieldCheck className="w-4 h-4 text-emerald-400" />, color: "from-emerald-500/10 to-teal-500/10 border-emerald-500/20" },
+            { label: "Safe", value: list.filter(r => r.status === "safe").length, icon: <ShieldCheck className="w-4 h-4 text-emerald-400" />, color: "from-emerald-500/10 to-teal-500/10 border-emerald-500/20" },
           ].map(({ label, value, icon, color }) => (
             <div key={label} className={`rounded-2xl border bg-gradient-to-br ${color} p-4 text-center`}>
               <div className="flex justify-center mb-1">{icon}</div>
@@ -202,16 +202,14 @@ export function BreachMonitor() {
                   className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-5 flex items-center gap-4"
                 >
                   {/* Icon */}
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                    record.status === "breached" || record.status === "new_breach"
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${record.status === "breached" || record.status === "new_breach"
                       ? "bg-red-500/20"
                       : record.status === "safe" ? "bg-emerald-500/20" : "bg-slate-500/20"
-                  }`}>
-                    <Mail className={`w-5 h-5 ${
-                      record.status === "breached" || record.status === "new_breach"
+                    }`}>
+                    <Mail className={`w-5 h-5 ${record.status === "breached" || record.status === "new_breach"
                         ? "text-red-400"
                         : record.status === "safe" ? "text-emerald-400" : "text-slate-400"
-                    }`} />
+                      }`} />
                   </div>
 
                   {/* Info */}

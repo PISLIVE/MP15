@@ -31,15 +31,12 @@ export function Settings() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
-  // 1. Fetch settings on mount
+  // 1. Fetch settings on mount (notifications only — theme is handled by next-themes localStorage)
   useEffect(() => {
     async function loadSettings() {
       try {
         const settings = await settingsService.getSettings();
         setNotificationsEnabled(settings.notifications_enabled);
-        if (settings.theme && settings.theme !== theme) {
-          setNextTheme(settings.theme);
-        }
       } catch (error) {
         console.error("Failed to load settings:", error);
       } finally {
