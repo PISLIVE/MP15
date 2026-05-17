@@ -114,8 +114,12 @@ function ProfileCard({ item, index }: { item: SocialResult; index: number }) {
         <div className="mt-auto space-y-3">
           <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
              <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> Public Profile</span>
-             <span className="flex items-center gap-1">
-               {item.source} index
+             <span className={`flex items-center gap-1 ${
+               item.source === "direct" ? "text-emerald-500" : "text-amber-500"
+             }`}>
+               {item.source === "direct" || item.source === "direct-login-wall"
+                 ? "✓ Verified"
+                 : "⚡ Search-inferred"}
              </span>
           </div>
 

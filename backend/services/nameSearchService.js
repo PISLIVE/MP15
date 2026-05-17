@@ -65,21 +65,30 @@ function isProfileUrl(link, domain) {
  * the person's name (or a significant portion of it).
  */
 function nameMatchesResult(fullName, title, snippet) {
-  const nameLower = fullName.toLowerCase();
+  const nameLower = fullName.toLowerCase().trim();
   const nameParts = nameLower.split(/\s+/).filter(Boolean);
   const combined = ((title || "") + " " + (snippet || "")).toLowerCase();
 
-  // Full name match
+  // Full name match — most reliable
   if (combined.includes(nameLower)) return true;
 
-  // At least 2 name parts match (for multi-word names)
+  // Multi-word names: at least 2 parts must match
   if (nameParts.length >= 2) {
     const matchCount = nameParts.filter(p => combined.includes(p)).length;
     return matchCount >= 2;
   }
 
-  // Single name part must match
-  return nameParts.some(p => combined.includes(p));
+  // Single-word name (e.g., "torvalds") — must be a strong match
+  // Require it appears as a distinct word (not substring of another word)
+  if (nameParts.length === 1 && nameParts[0].length >= 4) {
+    const word = nameParts[0];
+    // Check for word boundary match (preceded/followed by space, punctuation, or start/end)
+    const regex = new RegExp(`(?:^|[\\s\\-_@/\\.,:;"'()])${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:$|[\\s\\-_@/\\.,:;"'()])`, 'i');
+    return regex.test(combined);
+  }
+
+  // Very short single-word names (< 4 chars) — too ambiguous, skip
+  return false;
 }
 
 /**

@@ -37,6 +37,9 @@ import { ActivityChart } from "../components/ActivityChart";
 import { ParticleBackground } from "../components/ParticleBackground";
 import { SocialMentions } from "../components/SocialMentions";
 import { EmailIntelligence } from "../components/EmailIntelligence";
+import { PasswordBreachChecker } from "../components/PasswordBreachChecker";
+import { SecurityChecklist } from "../components/SecurityChecklist";
+import { ExposureMap } from "../components/ExposureMap";
 
 import { Button } from "../components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
@@ -376,7 +379,7 @@ export function Dashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.12),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(99,102,241,0.12),_transparent_22%),linear-gradient(to_bottom,_#f8fbff,_#eef4ff)] dark:bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.05),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(99,102,241,0.05),_transparent_22%),linear-gradient(to_bottom,_#030712,_#0f172a)] text-slate-900 dark:text-slate-100 transition-colors duration-300">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(180,140,80,0.08),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(160,120,60,0.08),_transparent_22%),linear-gradient(to_bottom,_#FBF8F3,_#F5F0E8)] dark:bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.05),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(99,102,241,0.05),_transparent_22%),linear-gradient(to_bottom,_#030712,_#0f172a)] text-slate-900 dark:text-slate-100 transition-colors duration-300">
       <ParticleBackground />
       <AnimatePresence mode="wait">
         {isScanning && (
@@ -384,7 +387,7 @@ export function Dashboard() {
         )}
       </AnimatePresence>
 
-      <header className="sticky top-0 z-40 border-b border-white/40 dark:border-slate-800/80 bg-white/75 dark:bg-slate-950/75 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-amber-200/40 dark:border-slate-800/80 bg-[#FAF7F2]/80 dark:bg-slate-950/75 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
           <div className="flex items-center gap-3">
             <div className="rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 p-3 shadow-lg shadow-blue-200 dark:shadow-none">
@@ -464,25 +467,55 @@ export function Dashboard() {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-        <section className="mb-6 overflow-hidden rounded-[28px] border border-slate-700/50 dark:border-slate-800/50 bg-slate-900/85 dark:bg-slate-950/60 backdrop-blur-3xl p-6 text-white shadow-[0_20px_60px_rgba(15,23,42,0.18)] sm:p-8 relative">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-600/25 via-indigo-600/25 to-purple-600/25 pointer-events-none mix-blend-overlay" />
+        <section className="mb-6 overflow-hidden rounded-[28px] border border-slate-700/50 dark:border-slate-800/50 bg-slate-900/90 dark:bg-slate-950/80 backdrop-blur-3xl p-6 text-white shadow-[0_20px_60px_rgba(15,23,42,0.25)] sm:p-8 relative">
+          {/* Animated gradient mesh */}
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 via-indigo-600/15 to-purple-700/20 pointer-events-none" />
+          <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none animate-pulse" />
+          <div className="absolute bottom-0 left-0 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-r from-blue-600/5 to-purple-600/5 rounded-full blur-3xl pointer-events-none" />
+
+          {/* Grid pattern overlay */}
+          <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{
+            backgroundImage: "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
+            backgroundSize: "40px 40px"
+          }} />
+
           <div className="relative z-10 grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
             <div>
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-medium text-blue-100">
-                <Sparkles className="h-3.5 w-3.5" />
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 backdrop-blur-md px-4 py-1.5 text-xs font-semibold text-blue-200 shadow-lg shadow-blue-900/20">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400"></span>
+                </span>
                 Real-time scan dashboard
               </div>
 
-              <h2 className="max-w-2xl text-2xl font-bold tracking-tight sm:text-4xl">
-                Scan public exposure across social presence, breach records, and search visibility
+              <h2 className="max-w-2xl text-3xl font-black tracking-tight sm:text-4xl lg:text-[2.75rem] leading-[1.15]">
+                <span className="bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent">
+                  Scan public exposure across social presence, breach records, and search visibility
+                </span>
               </h2>
 
-              <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
+              <p className="mt-5 max-w-xl text-sm leading-7 text-slate-300/90 sm:text-base">
                 Enter a username, email, or public profile URL. The dashboard will render the latest backend scan output and keep your recent scan history visible.
               </p>
+
+              {/* Mini trust badges */}
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                {[
+                  { label: "25+ Platforms", icon: "🌐" },
+                  { label: "AI-Powered", icon: "🤖" },
+                  { label: "Zero-Cost", icon: "💚" },
+                ].map((badge) => (
+                  <span key={badge.label} className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.07] border border-white/[0.08] px-2.5 py-1 text-[11px] font-medium text-slate-300">
+                    <span>{badge.icon}</span>
+                    {badge.label}
+                  </span>
+                ))}
+              </div>
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur sm:p-5">
+            <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur-xl shadow-2xl shadow-black/10 sm:p-5">
               <ProfileSearch onSearch={handleSearch} isLoading={isScanning} />
             </div>
           </div>
@@ -641,43 +674,45 @@ export function Dashboard() {
                   </section>
                 )}
 
-                <section id="report-content" className="rounded-[28px] border border-white/40 dark:border-slate-800/50 bg-white/40 dark:bg-slate-950/40 backdrop-blur-3xl p-4 shadow-[0_8px_32px_rgba(31,38,135,0.07)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3)] sm:p-6 relative">
-
-                  {/* ACTION BUTTONS */}
-                  <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex items-center gap-2">
-                    {/* Share Report */}
-                    <Button
-                      onClick={handleShare}
-                      disabled={sharing || !scanData}
-                      variant="outline"
-                      className="border-slate-300 bg-white/80 dark:border-slate-700 dark:bg-slate-800/80 rounded-xl"
-                    >
-                      {sharing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : copied ? <Check className="h-4 w-4 mr-2 text-green-500" /> : <Share2 className="h-4 w-4 mr-2" />}
-                      {copied ? "Copied!" : "Share"}
-                    </Button>
-                    {/* Export PDF */}
-                    <Button
-                      onClick={handleExportPDF}
-                      disabled={isExporting}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg shadow-indigo-200"
-                    >
-                      {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-                      Export PDF
-                    </Button>
-                  </div>
+                <section id="report-content" className="rounded-[28px] border border-white/40 dark:border-slate-800/50 bg-white/40 dark:bg-slate-950/40 backdrop-blur-3xl p-4 shadow-[0_8px_32px_rgba(31,38,135,0.07)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3)] sm:p-6">
 
                   <Tabs defaultValue="overview" className="w-full">
 
-                    <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                      <div>
-                        <h3 className="text-xl font-bold text-slate-900">Detailed Results</h3>
-                        <p className="text-sm text-slate-500">
-                          Browse the latest scan output by category
-                        </p>
+                    <div className="mb-6 space-y-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">Detailed Results</h3>
+                          <p className="text-sm text-slate-500 dark:text-slate-400">
+                            Browse the latest scan output by category
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button
+                            onClick={handleShare}
+                            disabled={sharing || !scanData}
+                            variant="outline"
+                            size="sm"
+                            className="border-slate-300 bg-white/80 dark:border-slate-700 dark:bg-slate-800/80 rounded-xl"
+                          >
+                            {sharing ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : copied ? <Check className="h-4 w-4 mr-1.5 text-green-500" /> : <Share2 className="h-4 w-4 mr-1.5" />}
+                            {copied ? "Copied!" : "Share"}
+                          </Button>
+                          <Button
+                            onClick={handleExportPDF}
+                            disabled={isExporting}
+                            size="sm"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg shadow-indigo-200 dark:shadow-none"
+                          >
+                            {isExporting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Download className="h-4 w-4 mr-1.5" />}
+                            Export PDF
+                          </Button>
+                        </div>
                       </div>
 
-                      <TabsList className="h-auto flex-wrap rounded-2xl bg-slate-100 p-1">
+                      <TabsList className="h-auto flex-wrap rounded-2xl bg-slate-100 dark:bg-slate-800/50 p-1">
                         <TabsTrigger value="overview" className="rounded-xl px-4 py-2">Overview</TabsTrigger>
+                        <TabsTrigger value="exposure" className="rounded-xl px-4 py-2">Exposure Map</TabsTrigger>
                         <TabsTrigger value="social" className="rounded-xl px-4 py-2">Social Profiles</TabsTrigger>
                         <TabsTrigger value="mentions" className="rounded-xl px-4 py-2">Activity Feed</TabsTrigger>
                         <TabsTrigger value="security" className="rounded-xl px-4 py-2">Security</TabsTrigger>
@@ -685,6 +720,8 @@ export function Dashboard() {
                         {scanData?.input?.email && (
                           <TabsTrigger value="email" className="rounded-xl px-4 py-2 text-blue-600 font-bold bg-blue-50 dark:bg-blue-900/30">Email Intelligence</TabsTrigger>
                         )}
+                        <TabsTrigger value="password" className="rounded-xl px-4 py-2 text-amber-600 font-bold bg-amber-50 dark:bg-amber-900/30">Password Check</TabsTrigger>
+                        <TabsTrigger value="checklist" className="rounded-xl px-4 py-2">Action Plan</TabsTrigger>
                         <TabsTrigger value="recommendations" className="rounded-xl px-4 py-2">Recommendations</TabsTrigger>
                       </TabsList>
                     </div>
@@ -736,6 +773,15 @@ export function Dashboard() {
                       </div>
                     </TabsContent>
 
+                    <TabsContent value="exposure" className="mt-0">
+                      <SectionCard title="Cross-Platform Exposure Map" icon={Globe}>
+                        <ExposureMap
+                          socialResults={scanData?.socialResults ?? []}
+                          breachResults={scanData?.breachResults ?? []}
+                        />
+                      </SectionCard>
+                    </TabsContent>
+
                     <TabsContent value="social" className="mt-0">
                       <SocialMediaPresence data={scanData?.socialResults ?? []} />
                     </TabsContent>
@@ -784,6 +830,18 @@ export function Dashboard() {
                         />
                       </TabsContent>
                     )}
+
+                    <TabsContent value="password" className="mt-0">
+                      <SectionCard title="Password Breach Checker" icon={Shield}>
+                        <PasswordBreachChecker />
+                      </SectionCard>
+                    </TabsContent>
+
+                    <TabsContent value="checklist" className="mt-0">
+                      <SectionCard title="Security Action Plan" icon={Shield}>
+                        <SecurityChecklist scanData={scanData} />
+                      </SectionCard>
+                    </TabsContent>
 
                     <TabsContent value="recommendations" className="mt-0">
                       <Recommendations recommendations={recommendations} />

@@ -36,18 +36,25 @@ async function generateSecuritySummary(scanData) {
         const model = genAI.getGenerativeModel({ model: modelName });
         
         const prompt = `
-          You are a world-class Cybersecurity and Privacy expert. 
+          You are a world-class Cybersecurity and Privacy expert.
           Analyze the following digital footprint scan results for a user and provide a professional, concise, and actionable security advice paragraph (max 150 words).
-          
+
+          CRITICAL RULES:
+          - ONLY reference data that is explicitly present in the scan results below.
+          - DO NOT fabricate, assume, or invent any breaches, platforms, or data that is not listed.
+          - If a section is empty or has 0 results, say so honestly — do not speculate.
+          - Never make up breach names, dates, or exposed data types.
+          - If there is insufficient data to assess risk, state that clearly.
+
           Scan Results:
-          - Social Media Profiles Found: ${JSON.stringify(scanData.socialResults)}
-          - Data Breaches Found: ${JSON.stringify(scanData.breachResults)}
-          - Google Search Mentions: ${JSON.stringify(scanData.googleResults)}
-          - Risk Score: ${scanData.riskScore?.score || "N/A"}
-          
+          - Social Media Profiles Found: ${JSON.stringify(scanData.socialResults?.map(s => ({ platform: s.platform, found: s.found, source: s.source })) || [])}
+          - Data Breaches Found: ${JSON.stringify(scanData.breachResults?.map(b => ({ platform: b.platform, date: b.date, severity: b.severity, dataExposed: b.dataExposed })) || [])}
+          - Google Search Mentions: ${scanData.googleResults?.length || 0} results
+          - Risk Score: ${scanData.riskScore?.score || "N/A"} / 100
+
           Your advice should:
-          1. Highlight the most critical risk if any (e.g., leaked passwords in breaches).
-          2. Suggest 1-2 immediate steps they can take (e.g., enable 2FA, adjust privacy settings).
+          1. Highlight the most critical risk based ONLY on the data above.
+          2. Suggest 1-2 immediate steps they can take (e.g., enable 2FA, change passwords).
           3. Sound professional, helpful, and not overly alarmist.
           4. Use Markdown for highlighting key terms.
         `;

@@ -87,6 +87,7 @@ export interface ScanData {
   breachResults: BreachResult[];
   googleResults: GoogleResult[];
   mentionResults: MentionResult[];
+  emailResults?: any;
   riskScore: RiskScore;
   aiSummary?: string;
 }

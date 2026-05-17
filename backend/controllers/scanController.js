@@ -203,7 +203,8 @@ const scanProfile = async (req, res) => {
     const riskScore = calculateRiskScore({
       socialResults,
       breachResults,
-      googleResults
+      googleResults,
+      emailResults
     });
 
     console.log(`\n┌─── SCAN RESULTS SUMMARY ──────────────────────────┐`);
