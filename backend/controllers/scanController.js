@@ -63,12 +63,26 @@ const scanProfile = async (req, res) => {
     const whoisScanner = require("../services/whoisScanner");
     const scanErrors = [];
 
-    // When only a name is provided, generate username variants for the social scanner
+    // ── Derive useful identifiers from email when name/username are missing ──
+    // e.g. "john.doe@gmail.com" → emailPrefix = "john.doe"
+    const emailPrefix = email ? email.split("@")[0].toLowerCase() : null;
+
+    // Build a search-friendly name from email prefix if no name was given
+    // e.g. "john.doe" → "john doe", "john_doe123" → "john doe"
+    const nameFromEmail = (!name && emailPrefix)
+      ? emailPrefix.replace(/[._\-]/g, " ").replace(/[0-9]+/g, "").trim()
+      : null;
+
+    // The effective name/username for scanners that need them
+    const effectiveName = name || nameFromEmail || null;
+    const effectiveUsername = username || emailPrefix || null;
+
+    // When only a name is provided (or derived from email), generate username variants
     // e.g. "Debanjani Saikia" → ["debanjanisaikia", "debanjani.saikia", "debanjani_saikia"]
     const usernameForSocial = username || null;
     let nameVariants = [];
-    if (!username && name) {
-      const parts = name.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (!username && effectiveName) {
+      const parts = effectiveName.trim().toLowerCase().split(/\s+/).filter(Boolean);
       if (parts.length >= 2) {
         nameVariants = [
           parts.join(""),        // debanjanisaikia
@@ -77,6 +91,12 @@ const scanProfile = async (req, res) => {
         ];
       } else if (parts.length === 1) {
         nameVariants = [parts[0]];
+      }
+      // Also add the raw email prefix as a variant if it came from email
+      if (emailPrefix && !username && !name) {
+        if (!nameVariants.includes(emailPrefix)) {
+          nameVariants.push(emailPrefix);
+        }
       }
     }
 
@@ -98,16 +118,16 @@ const scanProfile = async (req, res) => {
         : (nameVariants.length > 0
           ? Promise.all(nameVariants.map(v => socialScanner(v))).then(results => results.flat())
           : Promise.resolve([])),
-      // Google search: by name and/or username
-      googleScanner(name, username),
-      // Mention scanner: by name and/or username
-      mentionScanner(name, username),
+      // Google search: by name/username, or by email-derived identifiers
+      googleScanner(effectiveName, effectiveUsername),
+      // Mention scanner: by name/username, or by email-derived identifiers
+      mentionScanner(effectiveName, effectiveUsername),
       // Breach: prefer email, fallback to username
       email ? breachService(email, "email") : (username ? breachService(username, "username") : Promise.resolve([])),
       // Email OSINT: only if email is provided
       email ? emailScanner(email) : Promise.resolve(null),
-      // Name-based social search: search Google for "Debanjani Saikia" on social platforms
-      name ? nameToSocialSearch(name) : Promise.resolve([])
+      // Name-based social search: search Google for name on social platforms
+      effectiveName ? nameToSocialSearch(effectiveName) : Promise.resolve([])
     ]);
 
     // Extract results or capture errors

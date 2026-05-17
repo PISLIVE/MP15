@@ -378,7 +378,7 @@ export function Dashboard() {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.12),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(99,102,241,0.12),_transparent_22%),linear-gradient(to_bottom,_#f8fbff,_#eef4ff)] dark:bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.05),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(99,102,241,0.05),_transparent_22%),linear-gradient(to_bottom,_#030712,_#0f172a)] text-slate-900 dark:text-slate-100 transition-colors duration-300">
       <ParticleBackground />
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {isScanning && (
           <ScanningProgress isBackendComplete={hasScanned || !!scanError} />
         )}

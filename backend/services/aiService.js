@@ -21,12 +21,12 @@ async function generateSecuritySummary(scanData) {
     // We try multiple model identifiers to ensure compatibility
     // --- Fallback Model Registry ---
     const modelNames = [
+      "gemini-2.0-flash",
+      "gemini-2.0-flash-lite",
+      "gemini-2.5-flash-preview-05-20",
       "gemini-1.5-flash",
-      "gemini-1.5-flash-latest",
       "gemini-1.5-pro",
-      "gemini-1.5-pro-latest",
-      "gemini-pro",
-      "gemini-1.0-pro"
+      "gemini-pro"
     ];
     let lastError;
 
