@@ -6,6 +6,7 @@ const mentionScanner = require("../services/mentionScanner");
 const emailScanner = require("../services/emailScanner");
 const calculateRiskScore = require("../utils/riskScore");
 const aiService = require("../services/aiService");
+const nameToSocialSearch = require("../services/nameSearchService");
 
 // ─── SIMPLE IN-MEMORY CACHE ──────────────────────────────────────────────────
 // Reduces redundant API calls for repeated identical searches.
@@ -29,6 +30,14 @@ setInterval(cleanCache, 5 * 60 * 1000); // Cleanup every 5 mins
 const scanProfile = async (req, res) => {
   try {
     const { name, email, username } = req.body;
+
+    console.log(`\n╔═══════════════════════════════════════════════════╗`);
+    console.log(`║  SCAN REQUEST RECEIVED                            ║`);
+    console.log(`╠═══════════════════════════════════════════════════╣`);
+    console.log(`║  Name:     ${(name || "—").padEnd(38)}║`);
+    console.log(`║  Email:    ${(email || "—").padEnd(38)}║`);
+    console.log(`║  Username: ${(username || "—").padEnd(38)}║`);
+    console.log(`╚═══════════════════════════════════════════════════╝`);
 
     if (!name && !email && !username) {
       return res.status(400).json({
@@ -54,6 +63,23 @@ const scanProfile = async (req, res) => {
     const whoisScanner = require("../services/whoisScanner");
     const scanErrors = [];
 
+    // When only a name is provided, generate username variants for the social scanner
+    // e.g. "Debanjani Saikia" → ["debanjanisaikia", "debanjani.saikia", "debanjani_saikia"]
+    const usernameForSocial = username || null;
+    let nameVariants = [];
+    if (!username && name) {
+      const parts = name.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      if (parts.length >= 2) {
+        nameVariants = [
+          parts.join(""),        // debanjanisaikia
+          parts.join("."),      // debanjani.saikia
+          parts.join("_"),      // debanjani_saikia
+        ];
+      } else if (parts.length === 1) {
+        nameVariants = [parts[0]];
+      }
+    }
+
     // Run all scanners CONCURRENTLY for maximum speed
     const [
       whoisResult,
@@ -61,12 +87,17 @@ const scanProfile = async (req, res) => {
       googleResult,
       mentionResult,
       breachResult,
-      emailResult
+      emailResult,
+      nameSearchResult
     ] = await Promise.allSettled([
       // WHOIS: only if it looks like a domain
       username && username.includes(".") ? whoisScanner(username) : Promise.resolve(null),
-      // Social scanner: by username
-      username ? socialScanner(username) : Promise.resolve([]),
+      // Social scanner: by username, OR by name-derived variants
+      usernameForSocial
+        ? socialScanner(usernameForSocial)
+        : (nameVariants.length > 0
+          ? Promise.all(nameVariants.map(v => socialScanner(v))).then(results => results.flat())
+          : Promise.resolve([])),
       // Google search: by name and/or username
       googleScanner(name, username),
       // Mention scanner: by name and/or username
@@ -74,15 +105,36 @@ const scanProfile = async (req, res) => {
       // Breach: prefer email, fallback to username
       email ? breachService(email, "email") : (username ? breachService(username, "username") : Promise.resolve([])),
       // Email OSINT: only if email is provided
-      email ? emailScanner(email) : Promise.resolve(null)
+      email ? emailScanner(email) : Promise.resolve(null),
+      // Name-based social search: search Google for "Debanjani Saikia" on social platforms
+      name ? nameToSocialSearch(name) : Promise.resolve([])
     ]);
 
     // Extract results or capture errors
     const whoisResults = whoisResult.status === "fulfilled" ? whoisResult.value : null;
     if (whoisResult.status === "rejected") scanErrors.push("WHOIS lookup failed.");
 
-    const socialResults = socialResult.status === "fulfilled" ? (socialResult.value || []) : [];
+    let socialResults = socialResult.status === "fulfilled" ? (socialResult.value || []) : [];
     if (socialResult.status === "rejected") scanErrors.push("Social Scan Failed: " + socialResult.reason?.message);
+
+    // Merge name-based social discovery results
+    const nameSearchResults = nameSearchResult?.status === "fulfilled" ? (nameSearchResult.value || []) : [];
+    if (nameSearchResult?.status === "rejected") {
+      console.warn("Name-based social search failed:", nameSearchResult.reason?.message);
+    }
+    if (nameSearchResults.length > 0) {
+      // Deduplicate: only add if URL not already in socialResults
+      for (const nr of nameSearchResults) {
+        const nrUrl = (nr.url || "").toLowerCase();
+        const alreadyExists = socialResults.some(s => {
+          const sUrl = (s.url || "").toLowerCase();
+          return sUrl === nrUrl || sUrl.includes(nrUrl) || nrUrl.includes(sUrl);
+        });
+        if (!alreadyExists) {
+          socialResults.push(nr);
+        }
+      }
+    }
 
     const googleResults = googleResult.status === "fulfilled" ? (googleResult.value || []) : [];
     if (googleResult.status === "rejected") {
@@ -133,6 +185,19 @@ const scanProfile = async (req, res) => {
       breachResults,
       googleResults
     });
+
+    console.log(`\n┌─── SCAN RESULTS SUMMARY ──────────────────────────┐`);
+    console.log(`│  Social Profiles:  ${String(socialResults.length).padEnd(30)}│`);
+    socialResults.forEach(s => console.log(`│    • [${s.platform}] ${s.url?.substring(0, 38).padEnd(38)}│`));
+    console.log(`│  Google Results:   ${String(googleResults.length).padEnd(30)}│`);
+    console.log(`│  Mention Results:  ${String(mentionResults.length).padEnd(30)}│`);
+    console.log(`│  Breach Results:   ${String(breachResults.length).padEnd(30)}│`);
+    console.log(`│  Name Search:      ${String(nameSearchResults.length).padEnd(30)}│`);
+    if (scanErrors.length > 0) {
+      console.log(`│  ⚠️  Errors: ${String(scanErrors.length).padEnd(35)}│`);
+      scanErrors.forEach(e => console.log(`│    ! ${e.substring(0, 42).padEnd(42)}│`));
+    }
+    console.log(`└───────────────────────────────────────────────────┘\n`);
 
     // Generate AI Security Insight
     const aiSummary = await aiService.generateSecuritySummary({
