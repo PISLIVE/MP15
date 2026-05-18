@@ -237,6 +237,8 @@ const scanProfile = async (req, res) => {
         breach_results: breachResults,
         google_results: googleResults,
         mention_results: mentionResults,
+        email_results: emailResults,
+        whois_results: whoisResults,
         risk_score: riskScore.score,
         ai_summary: aiSummary
       })

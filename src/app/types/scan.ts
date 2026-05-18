@@ -101,6 +101,8 @@ export interface ScanHistoryItem {
   breach_results: BreachResult[] | null;
   google_results: GoogleResult[] | null;
   mention_results: MentionResult[] | null;
+  email_results?: any | null;
+  whois_results?: WhoisResult | null;
   ai_summary?: string | null;
 }
 

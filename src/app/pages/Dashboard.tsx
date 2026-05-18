@@ -20,10 +20,10 @@ import {
   Copy,
   Check,
   Loader2,
+  Activity,
 } from "lucide-react";
 
-import html2canvas from "html2canvas";
-import { jsPDF } from "jspdf";
+import { generatePDFReport } from "../utils/pdfReportGenerator";
 
 import { PrivacyScore } from "../components/PrivacyScore";
 import { MetricCard } from "../components/MetricCard";
@@ -40,6 +40,7 @@ import { EmailIntelligence } from "../components/EmailIntelligence";
 import { PasswordBreachChecker } from "../components/PasswordBreachChecker";
 import { SecurityChecklist } from "../components/SecurityChecklist";
 import { ExposureMap } from "../components/ExposureMap";
+import { ScanComparison } from "../components/ScanComparison";
 
 import { Button } from "../components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
@@ -224,6 +225,8 @@ export function Dashboard() {
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [currentQuery, setCurrentQuery] = useState<string>("");
+  const [previousScanData, setPreviousScanData] = useState<ScanData | null>(null);
+  const [previousScanDate, setPreviousScanDate] = useState<string | null>(null);
 
   const loadHistory = async () => {
     setIsHistoryLoading(true);
@@ -286,6 +289,39 @@ export function Dashboard() {
       }
       setHasScanned(true);
       await loadHistory();
+
+      // Find previous scan for the same query (for comparison)
+      try {
+        const histRes = await getScanHistory();
+        const allHistory: ScanHistoryItem[] = histRes?.data || [];
+        const normalizedQuery = query.trim().toLowerCase();
+        // Find the second-most-recent scan matching this query (skip the one we just created)
+        const previousMatch = allHistory
+          .filter(h => h.query?.trim().toLowerCase() === normalizedQuery)
+          .slice(1) // skip the newest (the one we just saved)
+          [0];
+        if (previousMatch) {
+          setPreviousScanData({
+            input: { name: previousMatch.query, username: previousMatch.query },
+            socialResults: previousMatch.social_results || [],
+            breachResults: previousMatch.breach_results || [],
+            googleResults: previousMatch.google_results || [],
+            mentionResults: previousMatch.mention_results || [],
+            riskScore: {
+              score: previousMatch.risk_score,
+              level: previousMatch.risk_score >= 70 ? "High" : previousMatch.risk_score >= 40 ? "Medium" : "Low"
+            },
+            aiSummary: previousMatch.ai_summary || undefined,
+          });
+          setPreviousScanDate(previousMatch.created_at);
+        } else {
+          setPreviousScanData(null);
+          setPreviousScanDate(null);
+        }
+      } catch {
+        setPreviousScanData(null);
+        setPreviousScanDate(null);
+      }
     } catch (error: any) {
       const msg =
         error?.response?.data?.message ||
@@ -300,27 +336,13 @@ export function Dashboard() {
   };
 
   const handleExportPDF = async () => {
-    const element = document.getElementById("report-content");
-    if (!element) return;
+    if (!scanData) return;
 
     try {
       setIsExporting(true);
-      toast.info("Generating PDF report...");
+      toast.info("Generating professional PDF report...");
 
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        logging: false
-      });
-
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF("p", "mm", "a4");
-
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`DigitalFootprint_${displayName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+      generatePDFReport(scanData, recommendations, currentQuery || displayName);
 
       toast.success("PDF Report Exported!");
     } catch (error) {
@@ -723,6 +745,10 @@ export function Dashboard() {
                         <TabsTrigger value="password" className="rounded-xl px-4 py-2 text-amber-600 font-bold bg-amber-50 dark:bg-amber-900/30">Password Check</TabsTrigger>
                         <TabsTrigger value="checklist" className="rounded-xl px-4 py-2">Action Plan</TabsTrigger>
                         <TabsTrigger value="recommendations" className="rounded-xl px-4 py-2">Recommendations</TabsTrigger>
+                        <TabsTrigger value="compare" className="rounded-xl px-4 py-2 text-purple-600 font-bold bg-purple-50 dark:bg-purple-900/30">
+                          <Activity className="h-3.5 w-3.5 mr-1.5" />
+                          Compare
+                        </TabsTrigger>
                       </TabsList>
                     </div>
 
@@ -845,6 +871,16 @@ export function Dashboard() {
 
                     <TabsContent value="recommendations" className="mt-0">
                       <Recommendations recommendations={recommendations} />
+                    </TabsContent>
+
+                    <TabsContent value="compare" className="mt-0">
+                      <SectionCard title="Scan Comparison" icon={Activity}>
+                        <ScanComparison
+                          currentScan={scanData}
+                          previousScan={previousScanData}
+                          previousDate={previousScanDate || undefined}
+                        />
+                      </SectionCard>
                     </TabsContent>
                   </Tabs>
                 </section>

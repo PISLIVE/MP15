@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import {
   CheckCircle2,
@@ -211,7 +211,29 @@ const priorityColors = {
 
 export function SecurityChecklist({ scanData }: SecurityChecklistProps) {
   const items = generateChecklist(scanData);
-  const [completed, setCompleted] = useState<Set<string>>(new Set());
+  
+  // Create a unique key for this specific scan's checklist
+  const queryKey = scanData?.input?.username || scanData?.input?.email || scanData?.input?.name || "unknown";
+  const storageKey = `dfa_checklist_${queryKey.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase()}`;
+
+  const [completed, setCompleted] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) return new Set(JSON.parse(saved));
+    } catch (e) {
+      console.error("Failed to parse checklist state", e);
+    }
+    return new Set();
+  });
+
+  // Save to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(Array.from(completed)));
+    } catch (e) {
+      console.error("Failed to save checklist state", e);
+    }
+  }, [completed, storageKey]);
 
   const toggleItem = (id: string) => {
     setCompleted((prev) => {

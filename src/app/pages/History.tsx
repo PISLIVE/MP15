@@ -17,7 +17,10 @@ import {
   X,
   Database,
   Globe,
-  Activity
+  Activity,
+  Map,
+  Mail,
+  CheckSquare
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "../components/ui/button";
@@ -30,8 +33,11 @@ import { SocialMediaPresence } from "../components/SocialMediaPresence";
 import { DataBreaches } from "../components/DataBreaches";
 import { SocialMentions } from "../components/SocialMentions";
 import { PrivacyScore } from "../components/PrivacyScore";
-import html2canvas from "html2canvas";
-import { jsPDF } from "jspdf";
+import { ExposureMap } from "../components/ExposureMap";
+import { EmailIntelligence } from "../components/EmailIntelligence";
+import { SecurityChecklist } from "../components/SecurityChecklist";
+import { generatePDFReport } from "../utils/pdfReportGenerator";
+import type { Recommendation } from "../types/scan";
 
 export function History() {
   const navigate = useNavigate();
@@ -81,11 +87,13 @@ export function History() {
         // Map backend history item back to ScanData-like structure for components
         const data = res.data;
         setSelectedScan({
-          input: { name: data.query, username: data.query }, // Approximation
+          input: { name: data.query, username: data.query, email: data.query.includes("@") ? data.query : undefined }, // Approximation
           socialResults: data.social_results || [],
           breachResults: data.breach_results || [],
           googleResults: data.google_results || [],
           mentionResults: data.mention_results || [],
+          emailResults: data.email_results || null,
+          whoisResults: data.whois_results || null,
           riskScore: { score: data.risk_score, level: data.risk_score >= 70 ? "High" : data.risk_score >= 40 ? "Medium" : "Low" }
         });
       }
@@ -110,21 +118,23 @@ export function History() {
   };
 
   const handleExportPDF = async () => {
-    const element = document.getElementById("history-report-content");
-    if (!element) return;
+    if (!selectedScan) return;
 
     try {
       setIsExporting(true);
-      toast.info("Generating forensic report...");
-      
-      const canvas = await html2canvas(element, { scale: 2, useCORS: true });
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`ForensicReport_${selectedId?.slice(0, 8)}.pdf`);
+      toast.info("Generating professional report...");
+
+      // Build basic recommendations for the PDF
+      const recommendations: Recommendation[] = [];
+      if ((selectedScan.breachResults?.length || 0) > 0) {
+        recommendations.push({ id: "b1", title: "Change exposed passwords immediately", description: "Breach records were detected. Update passwords and avoid reusing them across services.", priority: "high", icon: "shield" });
+      }
+      if ((selectedScan.socialResults?.length || 0) > 0) {
+        recommendations.push({ id: "s1", title: "Review public profile visibility", description: "Public-facing accounts were detected. Check bio details, contact info, and profile visibility settings.", priority: "medium", icon: "userx" });
+      }
+
+      generatePDFReport(selectedScan, recommendations, selectedScan.input?.name || selectedId || "report");
+
       toast.success("Report Exported!");
     } catch (error) {
       toast.error("Export failed");
@@ -376,18 +386,37 @@ export function History() {
 
                        {/* Detailed forensic sections */}
                        <div className="space-y-12">
+                          
                           <div>
                              <h3 className="mb-6 text-xl font-bold flex items-center gap-2">
-                                <Shield className="h-5 w-5 text-indigo-600" />
-                                1. Identity & Breaches
+                                <Map className="h-5 w-5 text-emerald-600" />
+                                1. Global Exposure Map
                              </h3>
-                             <DataBreaches breaches={selectedScan.breachResults} />
+                             <ExposureMap socialResults={selectedScan.socialResults} breachResults={selectedScan.breachResults} />
                           </div>
 
                           <div>
                              <h3 className="mb-6 text-xl font-bold flex items-center gap-2">
+                                <Shield className="h-5 w-5 text-indigo-600" />
+                                2. Identity & Breaches
+                             </h3>
+                             <DataBreaches breaches={selectedScan.breachResults} />
+                          </div>
+
+                          {selectedScan.emailResults && (
+                            <div>
+                               <h3 className="mb-6 text-xl font-bold flex items-center gap-2">
+                                  <Mail className="h-5 w-5 text-blue-500" />
+                                  3. Email Intelligence
+                               </h3>
+                               <EmailIntelligence data={selectedScan.emailResults} />
+                            </div>
+                          )}
+
+                          <div>
+                             <h3 className="mb-6 text-xl font-bold flex items-center gap-2">
                                 <Activity className="h-5 w-5 text-orange-600" />
-                                2. Social Activity Mentions
+                                {selectedScan.emailResults ? "4" : "3"}. Social Activity Mentions
                              </h3>
                              <SocialMentions mentions={selectedScan.mentionResults} />
                           </div>
@@ -395,10 +424,19 @@ export function History() {
                           <div>
                              <h3 className="mb-6 text-xl font-bold flex items-center gap-2">
                                 <Globe className="h-5 w-5 text-blue-600" />
-                                3. Social Footprint
+                                {selectedScan.emailResults ? "5" : "4"}. Social Footprint
                              </h3>
                              <SocialMediaPresence data={selectedScan.socialResults} />
                           </div>
+
+                          <div>
+                             <h3 className="mb-6 text-xl font-bold flex items-center gap-2">
+                                <CheckSquare className="h-5 w-5 text-purple-600" />
+                                {selectedScan.emailResults ? "6" : "5"}. Security Action Plan
+                             </h3>
+                             <SecurityChecklist scanData={selectedScan} />
+                          </div>
+
                        </div>
                        
                        <div className="border-t border-slate-100 pt-10 pb-10 text-center dark:border-slate-800">
