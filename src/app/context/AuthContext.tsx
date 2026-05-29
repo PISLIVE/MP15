@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { supabase } from "../lib/supabase";
 import { User } from "@supabase/supabase-js";
+import { useTheme } from "next-themes";
 
 type AuthContextType = {
   user: User | null;
@@ -16,6 +17,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const { setTheme } = useTheme();
 
   useEffect(() => {
     // 1. Check existing session on mount
@@ -66,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     await supabase.auth.signOut();
+    setTheme("light");
   };
 
   return (

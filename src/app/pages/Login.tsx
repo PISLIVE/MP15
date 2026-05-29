@@ -2,6 +2,7 @@ import { motion } from "motion/react";
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { useTheme } from "next-themes";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -21,6 +22,7 @@ export function Login() {
 
   const { user, login, signup, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const { setTheme } = useTheme();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,8 +35,11 @@ export function Login() {
   useEffect(() => {
     if (user) {
       navigate("/dashboard", { replace: true });
+    } else {
+      // Force light theme on login screen for new visitors
+      setTheme("light");
     }
-  }, [user, navigate]);
+  }, [user, navigate, setTheme]);
 
   // Google login
   const handleGoogleLogin = async () => {
