@@ -29,7 +29,7 @@ setInterval(cleanCache, 5 * 60 * 1000); // Cleanup every 5 mins
 
 const scanProfile = async (req, res) => {
   try {
-    const { name, email, username } = req.body;
+    const { name, email, username, strictMode } = req.body;
 
     console.log(`\n╔═══════════════════════════════════════════════════╗`);
     console.log(`║  SCAN REQUEST RECEIVED                            ║`);
@@ -114,9 +114,9 @@ const scanProfile = async (req, res) => {
       username && username.includes(".") ? whoisScanner(username) : Promise.resolve(null),
       // Social scanner: by username, OR by name-derived variants
       usernameForSocial
-        ? socialScanner(usernameForSocial)
+        ? socialScanner(usernameForSocial, strictMode ? effectiveName : null)
         : (nameVariants.length > 0
-          ? Promise.all(nameVariants.map(v => socialScanner(v))).then(results => results.flat())
+          ? Promise.all(nameVariants.map(v => socialScanner(v, strictMode ? effectiveName : null))).then(results => results.flat())
           : Promise.resolve([])),
       // Google search: by name/username, or by email-derived identifiers
       googleScanner(effectiveName, effectiveUsername),
@@ -228,10 +228,11 @@ const scanProfile = async (req, res) => {
       riskScore
     });
 
-    // Save to database (non-blocking — don't fail the API if this fails)
-    supabase
+    // Save to database
+    await supabase
       .from("scan_history")
       .insert({
+        user_id: req.user?.id,
         query: name || username || email,
         social_results: socialResults,
         breach_results: breachResults,
@@ -361,4 +362,20 @@ const deleteScan = async (req, res) => {
   }
 };
 
-module.exports = { scanProfile, getScanHistory, getScanById, deleteScan };
+const generatePhishingEmail = async (req, res) => {
+  try {
+    const { targetData } = req.body;
+    const emailContent = await aiService.generatePhishingSimulation(targetData);
+    res.status(200).json({ success: true, data: emailContent });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to generate simulation" });
+  }
+};
+
+module.exports = { 
+  scanProfile, 
+  getScanHistory, 
+  getScanById, 
+  deleteScan,
+  generatePhishingEmail
+};

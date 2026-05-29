@@ -21,12 +21,12 @@ async function generateSecuritySummary(scanData) {
     // We try multiple model identifiers to ensure compatibility
     // --- Fallback Model Registry ---
     const modelNames = [
+      "gemini-2.5-flash",
+      "gemini-3.5-flash",
       "gemini-2.0-flash",
       "gemini-2.0-flash-lite",
-      "gemini-2.5-flash-preview-05-20",
-      "gemini-1.5-flash",
-      "gemini-1.5-pro",
-      "gemini-pro"
+      "gemini-2.5-flash-lite",
+      "gemini-3.1-flash-lite"
     ];
     let lastError;
 
@@ -102,4 +102,67 @@ async function generateSecuritySummary(scanData) {
   }
 }
 
-module.exports = { generateSecuritySummary };
+/**
+ * Generates a targeted spear-phishing email simulation based on a user's digital footprint.
+ * @param {Object} scanData - The results from social, breach, and web scanners.
+ * @returns {Promise<string>} - The simulated phishing email.
+ */
+async function generatePhishingSimulation(scanData) {
+  try {
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!apiKey || apiKey === "your_gemini_api_key_here") {
+      return "ERROR: Missing Gemini API Key. Cannot generate simulation.";
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    
+    const modelNames = [
+      "gemini-2.5-flash",
+      "gemini-3.5-flash",
+      "gemini-2.0-flash",
+      "gemini-2.5-flash-lite",
+      "gemini-3.1-flash-lite"
+    ];
+
+    let lastError;
+    for (const modelName of modelNames) {
+      try {
+        const model = genAI.getGenerativeModel({ model: modelName });
+        
+        const prompt = `
+          You are an ethical Red Team cybersecurity expert demonstrating the dangers of Open Source Intelligence (OSINT).
+          Your task is to write a highly targeted spear-phishing email simulation based ONLY on the provided scan data.
+
+          Scan Results for Target:
+          - Social Media Profiles: ${JSON.stringify(scanData.socialResults?.filter(s => s.found).map(s => s.platform) || [])}
+          - Data Breaches (Compromised Services): ${JSON.stringify(scanData.breachResults?.map(b => b.platform) || [])}
+          - Email/Identifier: ${scanData.target || 'Unknown'}
+
+          INSTRUCTIONS:
+          1. Write a single, convincing phishing email that uses the target's exposed platforms to build trust or create urgency.
+          2. For example, if they have a breached LinkedIn, pretend to be LinkedIn support about a recent security issue. Or if they have a Twitter and a breached Dropbox, connect the two.
+          3. DO NOT include real malicious links. Use [MALICIOUS LINK] as a placeholder.
+          4. Keep it concise (under 200 words).
+          5. Make it realistic but ethically sound (do not ask for actual SSNs, just simulate the *ask*).
+          6. Output ONLY the email content (Subject line followed by body). No meta-commentary or warnings.
+        `;
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        if (response.text()) {
+          return response.text();
+        }
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    
+    return "Failed to generate simulation. Please try again later. (" + (lastError?.message || "Unknown error") + ")";
+  } catch (error) {
+    console.error("❌ Phishing Simulator Error:", error);
+    return "Error generating simulation.";
+  }
+}
+
+module.exports = { generateSecuritySummary, generatePhishingSimulation };

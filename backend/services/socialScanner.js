@@ -132,6 +132,32 @@ const fuzzyContains = (source, username) => {
   return u.length > 0 && s.includes(u);
 };
 
+// Check if expectedName matches the scraped name or bio
+const nameMatches = (expectedName, scrapedName, scrapedBio) => {
+  if (!expectedName) return true;
+  
+  const normalizeForMatch = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").trim();
+  
+  const en = normalizeForMatch(expectedName);
+  const target = normalizeForMatch((scrapedName || "") + " " + (scrapedBio || ""));
+  
+  if (!en) return true;
+  
+  const tokens = en.split(/\s+/).filter(Boolean);
+  
+  // We want at least one significant part of the expected name to be present
+  // If it's just a single short word, require exact token match.
+  // Otherwise, if any token >= 3 chars is found, it's a match.
+  const targetTokens = new Set(target.split(/\s+/).filter(Boolean));
+  
+  for (const token of tokens) {
+    if (token.length > 2 && target.includes(token)) return true;
+    if (targetTokens.has(token)) return true;
+  }
+  
+  return false;
+};
+
 // ─── Metadata extraction ─────────────────────────────────────────────────────
 function extractMetadata(html) {
   const result = {};
@@ -769,7 +795,7 @@ const deduplicateResults = (results) => {
 };
 
 // ─── Main export ─────────────────────────────────────────────────────────────
-const socialScanner = async (username) => {
+const socialScanner = async (username, expectedName = null) => {
   if (!username) return [];
   const cleanUsername = normalize(username);
   if (!cleanUsername) return [];
@@ -789,7 +815,21 @@ const socialScanner = async (username) => {
     results.push(...batchResults.filter(Boolean));
   }
 
-  return deduplicateResults(results);
+  let finalResults = deduplicateResults(results);
+  
+  // Apply Strict Verification Mode if expectedName is provided
+  if (expectedName) {
+    if (process.env.DEBUG_SCANNER === "true") console.log(`[Strict Mode] Filtering results for name: ${expectedName}`);
+    finalResults = finalResults.filter(item => {
+      const match = nameMatches(expectedName, item.profileData?.name, item.profileData?.bio);
+      if (!match && process.env.DEBUG_SCANNER === "true") {
+        console.log(`[Strict Mode] Discarded ${item.platform} (${item.url}) - Name mismatch. Scraped: "${item.profileData?.name}"`);
+      }
+      return match;
+    });
+  }
+
+  return finalResults;
 };
 
 module.exports = socialScanner;

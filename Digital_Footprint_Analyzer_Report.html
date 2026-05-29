@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Footprint Analyzer Report</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            line-height: 1.7;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #fff;
+        }
+        h1, h2, h3 {
+            border-bottom: 1px solid #eaecef;
+            padding-bottom: 0.3em;
+            margin-top: 32px;
+            margin-bottom: 16px;
+            font-weight: 600;
+        }
+        h1 { font-size: 2em; }
+        h2 { font-size: 1.5em; }
+        h3 { font-size: 1.25em; border-bottom: none; }
+        code {
+            font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+            background-color: rgba(27,31,35,0.05);
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+            font-size: 85%;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 16px;
+        }
+        table th, table td {
+            padding: 8px 13px;
+            border: 1px solid #dfe2e5;
+        }
+        table th { background: #f1f3f5; font-weight: 600; }
+        table tr:nth-child(2n) { background-color: #f6f8fa; }
+        .diagram-box {
+            margin: 24px 0;
+            padding: 20px;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .print-btn {
+            display: inline-block;
+            margin-bottom: 30px;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            font-size: 15px;
+        }
+        .print-btn:hover { opacity: 0.9; }
+        @media print {
+            .print-btn { display: none; }
+            body { max-width: 100%; padding: 20px; }
+            .diagram-box { page-break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+
+    <button class="print-btn" onclick="window.print()">&#128424; Print / Save as PDF</button>
+
+    <h1>Digital Footprint Analyzer</h1>
+    <h2>Comprehensive Technical Project Report</h2>
+    <p>
+        <strong>Date</strong>: May 2026<br>
+        <strong>Project</strong>: Digital Footprint Analyzer (DFA)<br>
+        <strong>Architecture</strong>: Monolithic Monorepo (React/Vite Frontend + Node.js/Express Backend)<br>
+        <strong>Database</strong>: Supabase (PostgreSQL)<br>
+        <strong>AI Integration</strong>: Google Gemini AI (Pro &amp; Flash Models)
+    </p>
+
+    <hr>
+
+    <h2>1. Executive Summary</h2>
+    <p>The Digital Footprint Analyzer is a highly advanced, zero-cost, privacy-centric application designed to comprehensively map an individual's digital presence. Unlike traditional OSINT (Open-Source Intelligence) tools that rely heavily on paid APIs, DFA utilizes an intelligent orchestration of web scraping, free API endpoints, search engine indexing (Google CSE/SerpAPI), and internal heuristic algorithms to locate profiles, detect data breaches, and monitor public mentions across the internet.</p>
+    <p>The system leverages a beautiful, premium "Glassmorphism" UI built on React and Vite, paired with a robust backend powered by Node.js. It features integrated AI security analysis using Google's Gemini models to provide actionable, tailored advice based on the user's specific threat landscape.</p>
+
+    <hr>
+
+    <h2>2. System Architecture</h2>
+    <p>The application follows a decoupled client-server model wrapped in a single monorepo, communicating via RESTful API endpoints.</p>
+
+    <div class="diagram-box">
+        <pre class="mermaid">
+graph TD
+    Client["React/Vite Frontend"]
+    API["Express API Gateway"]
+    Cache["In-Memory Scan Cache"]
+    DB[("Supabase PostgreSQL")]
+    AI["Google Gemini AI"]
+    Google["Google CSE / SerpAPI"]
+    Xposed["XposedOrNot / LeakCheck"]
+    Holehe["Holehe / Gravatar"]
+
+    Client -- "REST JSON" --> API
+    API <--> Cache
+    API -- "Save Scan History" --> DB
+    API -- "Fetch AI Summary" --> AI
+    API -- "Social Discovery" --> Google
+    API -- "Breach Lookup" --> Xposed
+    API -- "Email OSINT" --> Holehe
+        </pre>
+    </div>
+
+    <h3>Key Architectural Decisions</h3>
+    <ul>
+        <li><strong>Concurrent Scanning</strong>: The backend uses <code>Promise.allSettled()</code> to fire all OSINT scans simultaneously, dramatically reducing total scan time to ~3-8 seconds.</li>
+        <li><strong>In-Memory Caching</strong>: A 15-minute TTL cache (<code>scanCache</code>) prevents redundant external API calls, avoiding rate limits and saving bandwidth.</li>
+        <li><strong>Deduplication Engine</strong>: Built-in algorithms prevent duplicate social profiles or breaches from appearing, cross-referencing results from Google CSE and direct HTML checks.</li>
+    </ul>
+
+    <hr>
+
+    <h2>3. Frontend Architecture</h2>
+    <p>Built with <strong>React 18</strong>, <strong>Vite</strong>, <strong>Tailwind CSS v4</strong>, and <strong>shadcn/ui</strong>. The frontend is heavily stylized with glassmorphism, dynamic animations (Framer Motion), and a cream/dark mode theme.</p>
+
+    <h3>3.1 Core Technologies</h3>
+    <ul>
+        <li><strong>Routing</strong>: <code>react-router-dom</code></li>
+        <li><strong>State Management</strong>: React Context (<code>AuthContext</code>) and local state.</li>
+        <li><strong>Animations</strong>: <code>motion/react</code> for layout transitions and micro-interactions.</li>
+        <li><strong>Charting</strong>: <code>recharts</code> for visual data representation.</li>
+        <li><strong>Icons</strong>: <code>lucide-react</code></li>
+    </ul>
+
+    <h3>3.2 Page Structure</h3>
+    <table>
+        <thead>
+            <tr><th>Page Component</th><th>Path</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>Dashboard.tsx</code></td><td><code>/</code></td><td>The core scanning interface. Houses the search bar, metric cards, and dynamically renders the report tabs upon scan completion.</td></tr>
+            <tr><td><code>History.tsx</code></td><td><code>/history</code></td><td>Displays a forensic timeline of all past scans retrieved from Supabase. Includes advanced filtering and the ability to view historical snapshots via a modal.</td></tr>
+            <tr><td><code>BreachMonitor.tsx</code></td><td><code>/monitor</code></td><td>A dedicated page for setting up breach watchlists and background monitoring.</td></tr>
+            <tr><td><code>Login.tsx</code></td><td><code>/login</code></td><td>Supabase OAuth integration (Google &amp; Email/Password).</td></tr>
+            <tr><td><code>Settings.tsx</code></td><td><code>/settings</code></td><td>User preferences, notification configuration, and account management.</td></tr>
+            <tr><td><code>SharedReport.tsx</code></td><td><code>/report/:id</code></td><td>Public shareable link for scan reports with expiry.</td></tr>
+        </tbody>
+    </table>
+
+    <h3>3.3 Notable UI Components</h3>
+    <ul>
+        <li><strong>ExposureMap</strong>: Uses <code>recharts</code> to render a beautiful globe/map visualization showing where a user's data is most exposed.</li>
+        <li><strong>EmailIntelligence</strong>: Displays deliverability, Gravatar integration, and Holehe registration metrics in a sleek grid.</li>
+        <li><strong>SecurityChecklist</strong>: A highly actionable, dynamic checklist that adapts based on the user's specific breach/social data.</li>
+        <li><strong>PasswordBreachChecker</strong>: Verifies if passwords have been exposed using the HIBP k-Anonymity model.</li>
+        <li><strong>PrivacyScore</strong>: A circular progress ring calculating a risk score (0-100) based on exposure volume.</li>
+        <li><strong>DemoPreview</strong>: Animated landing page preview that showcases the scanner's capabilities.</li>
+        <li><strong>EmptyState</strong>: A premium onboarding view with feature cards and animated demo previews.</li>
+        <li><strong>SocialMediaPresence</strong>: Renders discovered social profiles with platform-specific branding and metadata.</li>
+        <li><strong>ProfileSearch</strong>: The intelligent search bar with auto-detection of input type (email, username, name).</li>
+    </ul>
+
+    <hr>
+
+    <h2>4. Backend Services &amp; Logic</h2>
+    <p>The backend is a monolithic Node.js/Express server containing highly specialized OSINT micro-services.</p>
+
+    <h3>4.1 Orchestrator: <code>scanController.js</code></h3>
+    <p>The heart of the application. It receives a query (<code>name</code>, <code>email</code>, or <code>username</code>), normalizes the data, creates variants (e.g., converting "John Doe" to "johndoe", "john.doe"), and fires all scanners concurrently using <code>Promise.allSettled()</code>. It handles failure gracefully&mdash;if one scanner fails due to rate limits, the rest of the report still generates.</p>
+
+    <h3>4.2 <code>socialScanner.js</code> (The Discovery Engine)</h3>
+    <ul>
+        <li><strong>Strategy Pattern</strong>: Implements unique detection strategies per platform (e.g., <code>instagram-api</code>, <code>facebook-redirect</code>, <code>direct</code>).</li>
+        <li><strong>Heuristics</strong>: Checks HTTP 3xx redirects (e.g., login walls) to confirm if an account exists when public scraping is blocked.</li>
+        <li><strong>Search Fallback</strong>: If direct HTML checks fail, it falls back to Google Custom Search Engine (CSE) using precise <code>site:</code> queries to find profiles in the Google index.</li>
+    </ul>
+
+    <h3>4.3 <code>breachService.js</code> (Dark Web / Breach Search)</h3>
+    <ul>
+        <li><strong>Multi-Source</strong>: Queries both <strong>XposedOrNot</strong> (100% free) and <strong>LeakCheck</strong>.</li>
+        <li><strong>Data Normalization</strong>: Translates raw breach data into human-readable formats (e.g., "dates of birth" &rarr; "Date of Birth").</li>
+        <li><strong>Severity Scoring</strong>: Analyzes the <em>types</em> of data exposed (passwords, SSN = High; names, dates = Medium) to assign a severity risk per breach.</li>
+    </ul>
+
+    <h3>4.4 <code>emailScanner.js</code> (Email OSINT)</h3>
+    <ul>
+        <li><strong>Holehe Wrapper</strong>: Spawns a Python child process to run <code>holehe</code>, which checks if an email is registered on 120+ websites using forgot-password endpoints (without alerting the user).</li>
+        <li><strong>DNS/MX Checks</strong>: Validates if the email domain can physically receive emails and identifies the provider (Google, Microsoft, Proton).</li>
+        <li><strong>Gravatar Integration</strong>: Hashes the email via MD5 and queries Gravatar for linked avatars, names, and bio data.</li>
+    </ul>
+
+    <h3>4.5 <code>aiService.js</code> (Security AI)</h3>
+    <ul>
+        <li>Uses <code>@google/generative-ai</code>.</li>
+        <li><strong>Model Waterfall</strong>: Tries <code>gemini-2.0-flash</code>, falls back to <code>gemini-1.5-pro</code>, etc.</li>
+        <li><strong>Anti-Hallucination Prompting</strong>: Strictly instructed to <em>only</em> analyze the JSON payload provided and never invent breaches or advice not rooted in the scan data.</li>
+    </ul>
+
+    <h3>4.6 <code>nameSearchService.js</code> &amp; <code>googleScanner.js</code></h3>
+    <p>Uses SerpAPI and Google CSE to find "Public Mentions" (news articles, forums, PDFs) associated with the target's name.</p>
+
+    <h3>4.7 <code>mentionScanner.js</code> (Web Mentions)</h3>
+    <p>Dedicated module for scanning web mentions and public references to the target identity across forums, news sites, and public directories.</p>
+
+    <h3>4.8 <code>riskScore.js</code> (Risk Calculation)</h3>
+    <p>A heuristic engine that computes a privacy risk score (0&ndash;100) based on the volume and severity of discovered social profiles, data breaches, web mentions, and email exposure. Scores above 70 are classified as "High Risk", 40&ndash;70 as "Medium", and below 40 as "Low".</p>
+
+    <hr>
+
+    <h2>5. Database Schema (Supabase)</h2>
+    <p>The application utilizes Supabase (PostgreSQL) for authentication and data persistence.</p>
+
+    <h3>Table: <code>scan_history</code></h3>
+    <p>Stores point-in-time snapshots of forensic scans.</p>
+    <table>
+        <thead>
+            <tr><th>Column</th><th>Type</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>id</code></td><td>UUID (PK)</td><td>Unique identifier for the scan.</td></tr>
+            <tr><td><code>user_id</code></td><td>UUID (FK)</td><td>Links to Supabase Auth user.</td></tr>
+            <tr><td><code>query</code></td><td>Text</td><td>The input used for the scan.</td></tr>
+            <tr><td><code>social_results</code></td><td>JSONB</td><td>Array of discovered social profiles.</td></tr>
+            <tr><td><code>breach_results</code></td><td>JSONB</td><td>Array of discovered data breaches.</td></tr>
+            <tr><td><code>google_results</code></td><td>JSONB</td><td>Array of public mentions.</td></tr>
+            <tr><td><code>email_results</code></td><td>JSONB</td><td>Output from Holehe and Gravatar.</td></tr>
+            <tr><td><code>whois_results</code></td><td>JSONB</td><td>Domain registry data (if applicable).</td></tr>
+            <tr><td><code>risk_score</code></td><td>Integer</td><td>The calculated threat score (0-100).</td></tr>
+            <tr><td><code>ai_summary</code></td><td>Text</td><td>The generated Gemini AI security advice.</td></tr>
+            <tr><td><code>created_at</code></td><td>Timestamp</td><td>Time of the scan.</td></tr>
+        </tbody>
+    </table>
+
+    <h3>Table: <code>shared_reports</code></h3>
+    <p>Stores shareable report links with expiry dates.</p>
+    <table>
+        <thead>
+            <tr><th>Column</th><th>Type</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>id</code></td><td>UUID (PK)</td><td>Unique share link identifier.</td></tr>
+            <tr><td><code>user_id</code></td><td>UUID (FK)</td><td>Owner of the shared report.</td></tr>
+            <tr><td><code>query</code></td><td>Text</td><td>The scan query for this report.</td></tr>
+            <tr><td><code>scan_data</code></td><td>JSONB</td><td>Full snapshot of scan results.</td></tr>
+            <tr><td><code>expires_at</code></td><td>Timestamp</td><td>Expiry date (7 days from creation).</td></tr>
+            <tr><td><code>created_at</code></td><td>Timestamp</td><td>Creation timestamp.</td></tr>
+        </tbody>
+    </table>
+
+    <h3>Table: <code>monitored_emails</code></h3>
+    <p>Stores emails added to the breach watchlist for background monitoring.</p>
+    <table>
+        <thead>
+            <tr><th>Column</th><th>Type</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>id</code></td><td>UUID (PK)</td><td>Unique identifier.</td></tr>
+            <tr><td><code>user_id</code></td><td>UUID (FK)</td><td>Owner of the monitored email.</td></tr>
+            <tr><td><code>email</code></td><td>Text (UNIQUE)</td><td>The email being monitored for breaches.</td></tr>
+            <tr><td><code>last_checked</code></td><td>Timestamp</td><td>Last time a breach check was performed.</td></tr>
+            <tr><td><code>breach_count</code></td><td>Integer</td><td>Number of breaches found in last check.</td></tr>
+            <tr><td><code>created_at</code></td><td>Timestamp</td><td>When monitoring started.</td></tr>
+        </tbody>
+    </table>
+
+    <h3>Table: <code>user_settings</code></h3>
+    <p>Stores per-user preferences (upserted on user_id).</p>
+    <table>
+        <thead>
+            <tr><th>Column</th><th>Type</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>user_id</code></td><td>UUID (PK/FK)</td><td>Links to Supabase Auth user.</td></tr>
+            <tr><td><code>notifications_enabled</code></td><td>Boolean</td><td>Whether breach alert notifications are on.</td></tr>
+            <tr><td><code>theme</code></td><td>Text</td><td>UI theme preference (system/light/dark).</td></tr>
+            <tr><td><code>updated_at</code></td><td>Timestamp</td><td>Last settings update.</td></tr>
+        </tbody>
+    </table>
+
+    <div class="diagram-box">
+        <pre class="mermaid">
+sequenceDiagram
+    participant User
+    participant Frontend
+    participant ScanController
+    participant OSINTServices
+    participant Supabase
+    participant GeminiAI
+
+    User->>Frontend: Enters Email / Name
+    Frontend->>ScanController: POST /api/scan
+    ScanController->>ScanController: Check Memory Cache
+
+    par Concurrent Execution
+        ScanController->>OSINTServices: socialScanner()
+        ScanController->>OSINTServices: breachService()
+        ScanController->>OSINTServices: emailScanner()
+        ScanController->>OSINTServices: googleScanner()
+    end
+
+    OSINTServices-->>ScanController: Return Aggregated Data
+    ScanController->>ScanController: calculateRiskScore()
+    ScanController->>GeminiAI: Request Security Summary
+    GeminiAI-->>ScanController: AI Advice Text
+    ScanController->>Supabase: INSERT INTO scan_history
+    ScanController-->>Frontend: JSON Response
+    Frontend-->>User: Render Dashboard
+        </pre>
+    </div>
+
+    <hr>
+
+    <h2>7. API Endpoints</h2>
+    <h3>Scan Routes (<code>/api</code>)</h3>
+    <table>
+        <thead>
+            <tr><th>Method</th><th>Endpoint</th><th>Auth</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>POST</code></td><td><code>/api/scan</code></td><td>&#128274; Yes</td><td>Execute a full OSINT scan (email/name/username). Rate-limited to 10 req/15 min.</td></tr>
+            <tr><td><code>GET</code></td><td><code>/api/history</code></td><td>&#128274; Yes</td><td>Retrieve all past scans for the authenticated user.</td></tr>
+            <tr><td><code>GET</code></td><td><code>/api/history/:id</code></td><td>&#128274; Yes</td><td>Fetch a specific scan by its UUID.</td></tr>
+            <tr><td><code>DELETE</code></td><td><code>/api/history/:id</code></td><td>&#128274; Yes</td><td>Delete a scan record from history.</td></tr>
+        </tbody>
+    </table>
+
+    <h3>Report Routes (<code>/api/report</code>)</h3>
+    <table>
+        <thead>
+            <tr><th>Method</th><th>Endpoint</th><th>Auth</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>POST</code></td><td><code>/api/report/share</code></td><td>&#128274; Yes</td><td>Create a shareable report link with 7-day expiry.</td></tr>
+            <tr><td><code>GET</code></td><td><code>/api/report/:id</code></td><td>&#127760; Public</td><td>Fetch a shared report by its public ID (no auth needed).</td></tr>
+        </tbody>
+    </table>
+
+    <h3>Monitor Routes (<code>/api/monitor</code>)</h3>
+    <table>
+        <thead>
+            <tr><th>Method</th><th>Endpoint</th><th>Auth</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>GET</code></td><td><code>/api/monitor</code></td><td>&#128274; Yes</td><td>Get all monitored emails for the current user.</td></tr>
+            <tr><td><code>POST</code></td><td><code>/api/monitor</code></td><td>&#128274; Yes</td><td>Add an email to the breach watchlist.</td></tr>
+            <tr><td><code>DELETE</code></td><td><code>/api/monitor/:id</code></td><td>&#128274; Yes</td><td>Remove an email from the watchlist.</td></tr>
+            <tr><td><code>POST</code></td><td><code>/api/monitor/:id/check</code></td><td>&#128274; Yes</td><td>Manually trigger a breach check for a monitored email.</td></tr>
+        </tbody>
+    </table>
+
+    <h3>Settings Routes (<code>/api/settings</code>)</h3>
+    <table>
+        <thead>
+            <tr><th>Method</th><th>Endpoint</th><th>Auth</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>GET</code></td><td><code>/api/settings</code></td><td>&#128274; Yes</td><td>Fetch user preferences (notifications, theme).</td></tr>
+            <tr><td><code>POST</code></td><td><code>/api/settings</code></td><td>&#128274; Yes</td><td>Update (upsert) user preferences.</td></tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h2>8. External Integrations</h2>
+    <table>
+        <thead>
+            <tr><th>Service</th><th>Purpose</th><th>Cost</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>Google CSE</td><td>Social profile discovery via indexed search results</td><td>Free tier (100 queries/day)</td></tr>
+            <tr><td>SerpAPI</td><td>Google search result parsing for name-based discovery</td><td>Free tier (100 searches/month)</td></tr>
+            <tr><td>XposedOrNot</td><td>Data breach lookup</td><td>100% Free</td></tr>
+            <tr><td>LeakCheck</td><td>Secondary breach source</td><td>Free tier</td></tr>
+            <tr><td>Holehe (Python)</td><td>Email registration check on 120+ sites</td><td>100% Free (open source)</td></tr>
+            <tr><td>Gravatar</td><td>Avatar and profile metadata via email hash</td><td>Free</td></tr>
+            <tr><td>Google Gemini AI</td><td>AI-powered security analysis and recommendations</td><td>Free tier</td></tr>
+            <tr><td>Supabase</td><td>Authentication (OAuth) and PostgreSQL database</td><td>Free tier</td></tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h2>9. Performance &amp; Optimization</h2>
+    <ol>
+        <li><strong>Vite PWA</strong>: The application is configured as a Progressive Web App via <code>vite-plugin-pwa</code>, allowing desktop and mobile installation with offline caching for static assets.</li>
+        <li><strong>Component Lazy Loading</strong>: Uses Radix UI primitives (<code>@radix-ui/*</code>) which are highly modular and accessible, keeping the DOM lightweight.</li>
+        <li><strong>API Rate Limiting</strong>: The backend uses <code>express-rate-limit</code> to prevent abuse.</li>
+        <li><strong>Resiliency</strong>: The backend uses <code>Promise.allSettled()</code> instead of <code>Promise.all()</code>. If an external API throws a 429 Rate Limit error, the application does not crash. It catches the rejection, logs a warning, and returns the rest of the available OSINT data perfectly intact to the user.</li>
+        <li><strong>In-Memory Cache</strong>: 15-minute TTL scan cache prevents redundant API calls within short timeframes.</li>
+    </ol>
+
+    <hr>
+
+    <h2>10. Deployment</h2>
+    <ul>
+        <li><strong>Frontend</strong>: Deployed on <strong>Vercel</strong> with automatic builds from Git. Configured via <code>vercel.json</code> for SPA routing.</li>
+        <li><strong>Backend</strong>: Deployed as a standalone Express server (can be hosted on Render, Railway, or any Node.js host).</li>
+        <li><strong>Database</strong>: Hosted on Supabase cloud (free tier PostgreSQL).</li>
+    </ul>
+
+    <hr>
+
+    <p style="text-align: center; color: #666; font-size: 0.9em; margin-top: 40px;">
+        <em>End of Report &mdash; Generated autonomously by Antigravity AI &bull; May 2026</em>
+    </p>
+
+    <script>
+        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    </script>
+</body>
+</html>

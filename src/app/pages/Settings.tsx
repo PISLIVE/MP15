@@ -28,6 +28,7 @@ export function Settings() {
   const { theme, setTheme: setNextTheme } = useTheme();
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [strictMode, setStrictMode] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
@@ -37,6 +38,7 @@ export function Settings() {
       try {
         const settings = await settingsService.getSettings();
         setNotificationsEnabled(settings.notifications_enabled);
+        setStrictMode(settings.strict_mode || false);
       } catch (error) {
         console.error("Failed to load settings:", error);
       } finally {
@@ -47,12 +49,13 @@ export function Settings() {
   }, [user]);
 
   // 2. Persist settings change
-  const syncSettings = async (updates: { notifications_enabled?: boolean; theme?: string }) => {
+  const syncSettings = async (updates: { notifications_enabled?: boolean; theme?: string; strict_mode?: boolean }) => {
     try {
       setIsSyncing(true);
       await settingsService.updateSettings({
         notifications_enabled: updates.notifications_enabled ?? notificationsEnabled,
         theme: updates.theme ?? (theme || "system"),
+        strict_mode: updates.strict_mode ?? strictMode,
       });
     } catch (error) {
       toast.error("Failed to save preference to cloud");
@@ -66,6 +69,13 @@ export function Settings() {
     setNotificationsEnabled(newValue); // Optimistic UI
     toast.success(newValue ? "Notifications enabled" : "Notifications disabled");
     await syncSettings({ notifications_enabled: newValue });
+  };
+
+  const handleToggleStrictMode = async () => {
+    const newValue = !strictMode;
+    setStrictMode(newValue); // Optimistic UI
+    toast.success(newValue ? "Strict Verification Mode enabled" : "Strict Verification Mode disabled");
+    await syncSettings({ strict_mode: newValue });
   };
 
   const handleThemeChange = async (newTheme: string) => {
@@ -246,7 +256,7 @@ export function Settings() {
           </div>
         </motion.section>
 
-        {/* Notifications Card */}
+        {/* Settings Card */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -257,10 +267,10 @@ export function Settings() {
             <div className="rounded-xl bg-blue-50 p-2 text-blue-600 dark:bg-blue-900/30">
               <Bell className="h-5 w-5" />
             </div>
-            <h2 className="text-base font-semibold text-slate-900 dark:text-white">Notifications</h2>
+            <h2 className="text-base font-semibold text-slate-900 dark:text-white">Preferences</h2>
           </div>
 
-          <div className="p-5">
+          <div className="p-5 space-y-4">
             <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800">
               <div>
                 <p className="text-sm font-medium text-slate-900 dark:text-white">Scan alerts</p>
@@ -269,13 +279,38 @@ export function Settings() {
               <button
                 onClick={handleToggleNotifications}
                 disabled={isSyncing}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 ${
                   notificationsEnabled ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-600"
                 } ${isSyncing ? "opacity-50 cursor-not-allowed" : ""}`}
               >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
                     notificationsEnabled ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800">
+              <div>
+                <p className="text-sm font-medium text-slate-900 dark:text-white flex items-center gap-1.5">
+                  Strict Verification Mode
+                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">BETA</span>
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Reduces false positives by requiring full name matching on social profiles. May hide real accounts that use pseudonyms.
+                </p>
+              </div>
+              <button
+                onClick={handleToggleStrictMode}
+                disabled={isSyncing}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 ${
+                  strictMode ? "bg-amber-500" : "bg-slate-300 dark:bg-slate-600"
+                } ${isSyncing ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                    strictMode ? "translate-x-6" : "translate-x-1"
                   }`}
                 />
               </button>

@@ -191,9 +191,13 @@ export function SharedReport() {
               </div>
             </div>
             <div className="bg-white/5 border border-white/10 rounded-xl p-5 relative overflow-hidden">
-               <div className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap relative z-10">
-                {scan.aiSummary}
-              </div>
+               <div className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap relative z-10"
+                 dangerouslySetInnerHTML={{
+                   __html: scan.aiSummary
+                     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                     .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                 }}
+               />
             </div>
           </motion.div>
         )}

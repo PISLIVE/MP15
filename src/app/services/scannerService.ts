@@ -61,4 +61,15 @@ export const deleteScan = async (id: string) => {
     console.error("Delete Scan error:", error);
     throw error;
   }
+};
+
+export const generatePhishingSimulation = async (targetData: any) => {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await axios.post(`${API_URL}/phishing-simulation`, { targetData }, { headers });
+    return response.data;
+  } catch (error) {
+    console.error("Phishing Simulation API error:", error);
+    throw error;
+  }
 };

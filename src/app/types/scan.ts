@@ -68,6 +68,7 @@ export interface ScanInput {
   name?: string;
   email?: string;
   username?: string;
+  strictMode?: boolean;
 }
 
 export interface WhoisResult {

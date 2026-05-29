@@ -12,10 +12,13 @@ import {
   AlertCircle,
   ShieldAlert,
   ShieldQuestion,
+  Lock,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import type { SocialResult } from "../types/scan";
+import { useAuth } from "../context/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 interface SocialMediaPresenceProps {
   data: SocialResult[];
@@ -32,6 +35,22 @@ function getPlatformAccent(platform: string) {
   if (name.includes("youtube")) return "from-red-600 to-red-700";
   if (name.includes("threads")) return "from-slate-900 to-slate-800";
   return "from-blue-500 to-indigo-600";
+}
+
+function getPrivacyLink(platform: string) {
+  const p = platform.toLowerCase();
+  if (p.includes("facebook")) return "https://www.facebook.com/settings?tab=privacy";
+  if (p.includes("twitter") || p.includes(" x") || p === "x") return "https://twitter.com/settings/privacy_and_safety";
+  if (p.includes("instagram")) return "https://www.instagram.com/accounts/privacy_and_security/";
+  if (p.includes("linkedin")) return "https://www.linkedin.com/psettings/privacy";
+  if (p.includes("github")) return "https://github.com/settings/profile";
+  if (p.includes("reddit")) return "https://www.reddit.com/settings/privacy";
+  if (p.includes("youtube") || p.includes("google")) return "https://myaccount.google.com/privacy";
+  if (p.includes("tiktok")) return "https://www.tiktok.com/setting";
+  if (p.includes("pinterest")) return "https://www.pinterest.com/settings/privacy/";
+  if (p.includes("snapchat")) return "https://accounts.snapchat.com/accounts/privacy";
+  
+  return `https://www.google.com/search?q=how+to+make+${encodeURIComponent(platform)}+account+private`;
 }
 
 function VisibilityBadge({ score }: { score?: "low" | "medium" | "high" }) {
@@ -123,14 +142,24 @@ function ProfileCard({ item, index }: { item: SocialResult; index: number }) {
              </span>
           </div>
 
-          <Button 
-            variant="outline" 
-            className="w-full h-9 rounded-xl border-slate-200 bg-slate-50 hover:bg-white hover:text-blue-600 transition-all dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800"
-            onClick={() => window.open(item.url, '_blank')}
-          >
-            <ExternalLink className="h-3.5 w-3.5 mr-2" />
-            View Live Profile
-          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button 
+              variant="outline" 
+              className="w-full h-9 rounded-xl border-slate-200 bg-slate-50 hover:bg-white hover:text-blue-600 transition-all dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800"
+              onClick={() => window.open(item.url, '_blank')}
+            >
+              <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+              Live Profile
+            </Button>
+            <Button 
+              variant="outline" 
+              className="w-full h-9 rounded-xl border-slate-200 bg-slate-50 hover:bg-white hover:text-amber-600 transition-all dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800"
+              onClick={() => window.open(getPrivacyLink(item.platform), '_blank')}
+            >
+              <Lock className="h-3.5 w-3.5 mr-1.5" />
+              Manage Privacy
+            </Button>
+          </div>
         </div>
       </div>
     </motion.div>
@@ -138,7 +167,13 @@ function ProfileCard({ item, index }: { item: SocialResult; index: number }) {
 }
 
 export function SocialMediaPresence({ data }: SocialMediaPresenceProps) {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const isDemo = user?.email === "demo@footprintanalyzer.com";
+
   const safeData = Array.isArray(data) ? data.filter((item) => item?.found) : [];
+  const displayData = isDemo ? safeData.slice(0, 2) : safeData;
+  const hiddenCount = isDemo ? Math.max(0, safeData.length - 2) : 0;
 
   return (
     <motion.div
@@ -185,10 +220,48 @@ export function SocialMediaPresence({ data }: SocialMediaPresenceProps) {
             </p>
           </div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-            {safeData.map((item, index) => (
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3 relative">
+            {displayData.map((item, index) => (
               <ProfileCard key={index} item={item} index={index} />
             ))}
+
+            {hiddenCount > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="relative rounded-3xl border border-slate-200 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40 p-5 overflow-hidden flex flex-col justify-between min-h-[220px]"
+              >
+                <div className="absolute inset-0 backdrop-blur-[6px] z-10 flex flex-col items-center justify-center bg-white/30 dark:bg-slate-950/50 p-4 text-center">
+                  <Lock className="w-8 h-8 text-indigo-500 mb-2" />
+                  <p className="font-bold text-slate-900 dark:text-slate-100">
+                    {hiddenCount} More Profiles Found
+                  </p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                    Register a free account to unlock full identity mapping.
+                  </p>
+                  <Button
+                    onClick={() => {
+                      navigate("/login");
+                    }}
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
+                  >
+                    Register Now
+                  </Button>
+                </div>
+                {/* Dummy blurred content underneath */}
+                <div className="opacity-40 blur-sm pointer-events-none select-none">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="h-10 w-10 bg-slate-200 dark:bg-slate-800 rounded-xl" />
+                    <div>
+                      <div className="h-3 w-20 bg-slate-300 dark:bg-slate-700 rounded mb-1" />
+                      <div className="h-2 w-16 bg-slate-200 dark:bg-slate-800 rounded" />
+                    </div>
+                  </div>
+                  <div className="h-2 w-full bg-slate-200 dark:bg-slate-800 rounded mb-2" />
+                  <div className="h-2 w-2/3 bg-slate-200 dark:bg-slate-800 rounded" />
+                </div>
+              </motion.div>
+            )}
           </div>
         )}
 

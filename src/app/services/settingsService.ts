@@ -6,6 +6,7 @@ const API_BASE_URL = `${API_URL}/settings`;
 export interface UserSettings {
   notifications_enabled: boolean;
   theme: string;
+  strict_mode: boolean;
 }
 
 /**
@@ -41,7 +42,7 @@ export const settingsService = {
   /**
    * Update (upsert) settings for the current user
    */
-  async updateSettings(settings: UserSettings): Promise<UserSettings> {
+  async updateSettings(settings: Partial<UserSettings>): Promise<UserSettings> {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
 

@@ -34,16 +34,21 @@ import { ProfileSearch } from "../components/ProfileSearch";
 import { ScanningProgress } from "../components/ScanningProgress";
 import { EmptyState } from "../components/EmptyState";
 import { ActivityChart } from "../components/ActivityChart";
+import { PrivacyScoreChart } from "../components/PrivacyScoreChart";
+import { ThreatIntelligenceFeed } from "../components/ThreatIntelligenceFeed";
 import { ParticleBackground } from "../components/ParticleBackground";
+import { settingsService } from "../services/settingsService";
 import { SocialMentions } from "../components/SocialMentions";
 import { EmailIntelligence } from "../components/EmailIntelligence";
 import { PasswordBreachChecker } from "../components/PasswordBreachChecker";
 import { SecurityChecklist } from "../components/SecurityChecklist";
 import { ExposureMap } from "../components/ExposureMap";
 import { ScanComparison } from "../components/ScanComparison";
+import { PhishingSimulator } from "../components/PhishingSimulator";
 
 import { Button } from "../components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../components/ui/dialog";
 
 import { AnimatePresence } from "motion/react";
 
@@ -223,10 +228,13 @@ export function Dashboard() {
   const [isExporting, setIsExporting] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [shareLink, setShareLink] = useState<string | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [currentQuery, setCurrentQuery] = useState<string>("");
   const [previousScanData, setPreviousScanData] = useState<ScanData | null>(null);
   const [previousScanDate, setPreviousScanDate] = useState<string | null>(null);
+
+  const isDemo = user?.email === "demo@footprintanalyzer.com";
 
   const loadHistory = async () => {
     setIsHistoryLoading(true);
@@ -251,6 +259,7 @@ export function Dashboard() {
       if (res.success) {
         const url = `${window.location.origin}/report/${res.id}`;
         setShareLink(url);
+        setIsShareModalOpen(true);
         await navigator.clipboard.writeText(url);
         setCopied(true);
         setTimeout(() => setCopied(false), 3000);
@@ -279,7 +288,11 @@ export function Dashboard() {
     setCurrentQuery(query);
 
     try {
-      const payload = parseQuery(query);
+      const settings = await settingsService.getSettings().catch(() => null);
+      const payload = parseQuery(query) as ScanInput;
+      if (settings?.strict_mode) {
+        payload.strictMode = true;
+      }
       const result = await scanProfile(payload);
 
       setScanData(result?.data ?? null);
@@ -337,6 +350,12 @@ export function Dashboard() {
 
   const handleExportPDF = async () => {
     if (!scanData) return;
+    if (isDemo) {
+      toast.error("PDF Export is locked in Demo Mode. Please register for full access.", {
+        action: { label: "Register", onClick: handleLogout },
+      });
+      return;
+    }
 
     try {
       setIsExporting(true);
@@ -400,6 +419,20 @@ export function Dashboard() {
     [scanHistory]
   );
 
+  const scoreTrendData = useMemo(
+    () =>
+      [...scanHistory]
+        .reverse()
+        .slice(-8)
+        .map((item) => ({
+          date: item.created_at
+            ? new Date(item.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+            : "—",
+          score: item.risk_score || 0,
+        })),
+    [scanHistory]
+  );
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(180,140,80,0.08),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(160,120,60,0.08),_transparent_22%),linear-gradient(to_bottom,_#FBF8F3,_#F5F0E8)] dark:bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.05),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(99,102,241,0.05),_transparent_22%),linear-gradient(to_bottom,_#030712,_#0f172a)] text-slate-900 dark:text-slate-100 transition-colors duration-300">
       <ParticleBackground />
@@ -408,6 +441,16 @@ export function Dashboard() {
           <ScanningProgress isBackendComplete={hasScanned || !!scanError} />
         )}
       </AnimatePresence>
+
+      {isDemo && (
+        <div className="bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 px-4 py-2 text-center text-sm font-medium border-b border-amber-200 dark:border-amber-800/50 flex items-center justify-center gap-2">
+          <AlertTriangle className="w-4 h-4" />
+          You are exploring in Demo Mode. Some results are locked.
+          <button onClick={handleLogout} className="ml-2 underline font-bold hover:text-amber-700 dark:hover:text-amber-100">
+            Register for free
+          </button>
+        </div>
+      )}
 
       <header className="sticky top-0 z-40 border-b border-amber-200/40 dark:border-slate-800/80 bg-[#FAF7F2]/80 dark:bg-slate-950/75 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
@@ -621,9 +664,13 @@ export function Dashboard() {
                       <div className="absolute top-0 right-0 p-3 opacity-10">
                         <Shield className="h-12 w-12 text-blue-600" />
                       </div>
-                      <div className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">
-                        {scanData.aiSummary}
-                      </div>
+                      <div className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed whitespace-pre-wrap"
+                        dangerouslySetInnerHTML={{
+                          __html: scanData.aiSummary
+                            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                            .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                        }}
+                      />
                     </div>
                   </section>
                 )}
@@ -745,6 +792,9 @@ export function Dashboard() {
                         <TabsTrigger value="password" className="rounded-xl px-4 py-2 text-amber-600 font-bold bg-amber-50 dark:bg-amber-900/30">Password Check</TabsTrigger>
                         <TabsTrigger value="checklist" className="rounded-xl px-4 py-2">Action Plan</TabsTrigger>
                         <TabsTrigger value="recommendations" className="rounded-xl px-4 py-2">Recommendations</TabsTrigger>
+                        <TabsTrigger value="simulator" className="rounded-xl px-4 py-2 text-rose-600 font-bold bg-rose-50 dark:bg-rose-900/30">
+                          Threat Simulator
+                        </TabsTrigger>
                         <TabsTrigger value="compare" className="rounded-xl px-4 py-2 text-purple-600 font-bold bg-purple-50 dark:bg-purple-900/30">
                           <Activity className="h-3.5 w-3.5 mr-1.5" />
                           Compare
@@ -873,6 +923,10 @@ export function Dashboard() {
                       <Recommendations recommendations={recommendations} />
                     </TabsContent>
 
+                    <TabsContent value="simulator" className="mt-0">
+                      <PhishingSimulator scanData={scanData} />
+                    </TabsContent>
+
                     <TabsContent value="compare" className="mt-0">
                       <SectionCard title="Scan Comparison" icon={Activity}>
                         <ScanComparison
@@ -958,9 +1012,58 @@ export function Dashboard() {
             {chartData.length > 0 && (
               <ActivityChart data={chartData} />
             )}
+            
+            {scoreTrendData.length > 0 && (
+              <PrivacyScoreChart data={scoreTrendData} />
+            )}
+
+            <ThreatIntelligenceFeed />
           </div>
         </div>
       </main>
+
+      <Dialog open={isShareModalOpen} onOpenChange={setIsShareModalOpen}>
+        <DialogContent className="sm:max-w-md bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-slate-200 dark:border-slate-800">
+          <DialogHeader>
+            <DialogTitle className="text-slate-900 dark:text-slate-100">Share Report</DialogTitle>
+            <DialogDescription className="text-slate-500 dark:text-slate-400">
+              Anyone with this link or QR code can view this report.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-6 py-4">
+            {shareLink && (
+              <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center justify-center">
+                <img 
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(shareLink)}`} 
+                  alt="QR Code" 
+                  className="w-[200px] h-[200px]"
+                />
+              </div>
+            )}
+            <div className="flex w-full items-center gap-2">
+              <input
+                className="flex h-10 w-full rounded-xl border border-slate-300 bg-transparent px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 dark:border-slate-700 dark:text-slate-100"
+                value={shareLink || ""}
+                readOnly
+              />
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (shareLink) {
+                    navigator.clipboard.writeText(shareLink);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 3000);
+                    toast.success("Copied!");
+                  }
+                }}
+                className="px-3 rounded-xl"
+              >
+                {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

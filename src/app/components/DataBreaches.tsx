@@ -18,12 +18,15 @@ import {
   Users,
   BadgeCheck,
   Link,
+  Trash2,
 } from "lucide-react";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { motion, AnimatePresence } from "motion/react";
 import type { BreachResult } from "../types/scan";
+import { useAuth } from "../context/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 interface DataBreachesProps {
   breaches: BreachResult[];
@@ -72,6 +75,28 @@ function getRemediationSteps(breach: BreachResult) {
   }
 
   return steps;
+}
+
+function getDeletionLink(domain?: string, platform?: string) {
+  const p = (domain || platform || "").toLowerCase();
+  
+  // High-accuracy known deletion URLs
+  if (p.includes("facebook")) return "https://www.facebook.com/help/delete_account";
+  if (p.includes("twitter") || p.includes(" x.com") || p === "x") return "https://twitter.com/settings/deactivate";
+  if (p.includes("instagram")) return "https://www.instagram.com/accounts/remove/request/permanent/";
+  if (p.includes("linkedin")) return "https://www.linkedin.com/psettings/account-management/close-submit";
+  if (p.includes("adobe")) return "https://account.adobe.com/privacy";
+  if (p.includes("canva")) return "https://www.canva.com/help/article/delete-account";
+  if (p.includes("dropbox")) return "https://www.dropbox.com/account/delete";
+  if (p.includes("yahoo")) return "https://edit.yahoo.com/config/delete_user";
+  if (p.includes("myfitnesspal")) return "https://www.myfitnesspal.com/account/delete_account";
+  if (p.includes("wattpad")) return "https://www.wattpad.com/user_close";
+  if (p.includes("tumblr")) return "https://www.tumblr.com/account/delete";
+  if (p.includes("pinterest")) return "https://www.pinterest.com/settings/account-settings/";
+  if (p.includes("reddit")) return "https://www.reddit.com/prefs/deactivate/";
+  
+  // Fallback to highly accurate Google Search targeting the specific platform
+  return `https://www.google.com/search?q=how+to+delete+account+on+${encodeURIComponent(platform || domain || "")}`;
 }
 
 function getSeverityStyles(severity: string) {
@@ -180,6 +205,15 @@ function BreachCard({ breach, index }: { breach: BreachResult; index: number }) 
               {breach.domain}
             </Button>
           )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 rounded-lg text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+            onClick={() => window.open(getDeletionLink(breach.domain, breach.platform), '_blank')}
+          >
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+            Delete Account
+          </Button>
           </div>
       </div>
 
@@ -237,7 +271,14 @@ function BreachCard({ breach, index }: { breach: BreachResult; index: number }) 
 }
 
 export function DataBreaches({ breaches }: DataBreachesProps) {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const isDemo = user?.email === "demo@footprintanalyzer.com";
+
   const safeBreaches = Array.isArray(breaches) ? breaches : [];
+  const displayBreaches = isDemo ? safeBreaches.slice(0, 1) : safeBreaches;
+  const hiddenCount = isDemo ? Math.max(0, safeBreaches.length - 1) : 0;
+
   const totalExposed = safeBreaches.reduce((acc, curr) => acc + (curr.recordCount || 0), 0);
   const highRiskCount = safeBreaches.filter(b => b.severity === "high").length;
 
@@ -295,9 +336,45 @@ export function DataBreaches({ breaches }: DataBreachesProps) {
           </div>
         ) : (
           <div className="space-y-6">
-            {safeBreaches.map((breach, index) => (
+            {displayBreaches.map((breach, index) => (
               <BreachCard key={breach.id || index} breach={breach} index={index} />
             ))}
+
+            {hiddenCount > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="relative rounded-3xl border border-slate-200 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40 p-5 overflow-hidden"
+              >
+                <div className="absolute inset-0 backdrop-blur-[6px] z-10 flex flex-col items-center justify-center bg-white/30 dark:bg-slate-950/50">
+                  <Lock className="w-8 h-8 text-amber-500 mb-2" />
+                  <p className="font-bold text-slate-900 dark:text-slate-100">
+                    {hiddenCount} More Data Breaches Found
+                  </p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-4 max-w-sm text-center">
+                    Register a free account to unlock your complete forensic breach history and view exposed passwords.
+                  </p>
+                  <Button
+                    onClick={() => {
+                      navigate("/login");
+                    }}
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
+                  >
+                    Register Now
+                  </Button>
+                </div>
+                {/* Dummy blurred content underneath */}
+                <div className="opacity-40 blur-sm pointer-events-none select-none flex items-center gap-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-200 dark:bg-slate-800">
+                    <Database className="h-5 w-5 text-slate-400" />
+                  </div>
+                  <div>
+                    <div className="h-4 w-32 bg-slate-300 dark:bg-slate-700 rounded mb-2"></div>
+                    <div className="h-3 w-48 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
           </div>
         )}
 
