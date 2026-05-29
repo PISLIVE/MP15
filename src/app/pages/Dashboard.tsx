@@ -944,11 +944,12 @@ export function Dashboard() {
 
           {/* Bottom strip: History, Tips, Chart */}
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            <SectionCard
-              title="Recent Scan History"
-              icon={Clock3}
-            >
-              <div className="mb-4 flex items-center justify-between">
+            {!isDemo && (
+              <SectionCard
+                title="Recent Scan History"
+                icon={Clock3}
+              >
+                <div className="mb-4 flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Recent Activity</span>
                 <Button
                   variant="ghost"
@@ -994,6 +995,7 @@ export function Dashboard() {
                 <p className="text-sm text-slate-500">No scan history yet.</p>
               )}
             </SectionCard>
+            )}
 
             <SectionCard title="How to read this dashboard" icon={Sparkles}>
               <div className="space-y-3 text-sm text-slate-600">
@@ -1009,11 +1011,11 @@ export function Dashboard() {
               </div>
             </SectionCard>
 
-            {chartData.length > 0 && (
+            {!isDemo && chartData.length > 0 && (
               <ActivityChart data={chartData} />
             )}
             
-            {scoreTrendData.length > 0 && (
+            {!isDemo && scoreTrendData.length > 0 && (
               <PrivacyScoreChart data={scoreTrendData} />
             )}
 
