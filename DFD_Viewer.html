@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DFD Viewer - Digital Footprint Analyzer</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; padding: 2rem; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        .diagram-section { margin-bottom: 3rem; text-align: center; }
+        h1, h2 { color: #0f172a; text-align: center; }
+        .instructions { text-align: center; color: #64748b; margin-bottom: 2rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Data Flow Diagrams</h1>
+        <p class="instructions">
+            <strong>To save these diagrams:</strong> Right-click on the image and select "Save image as...", or use your computer's screenshot tool.
+        </p>
+
+        <div class="diagram-section">
+            <h2>Level 0: Context Diagram</h2>
+            <div class="mermaid">
+graph TD
+    User((User / Frontend))
+    Google((Google / SerpAPI))
+    Social((Social Platforms))
+    Breach((Breach Databases))
+    Whois((WHOIS / DNS Services))
+    AI((AI Service Provider))
+    DB[(Supabase Database)]
+
+    System[Digital Footprint Analyzer System]
+
+    User -- "Scan Query (Name, Email, Username)" --> System
+    System -- "Comprehensive Scan Report & Insights" --> User
+    
+    System -- "Search Queries" --> Google
+    Google -- "Search & Mention Results" --> System
+    
+    System -- "Target Identifiers" --> Social
+    Social -- "Profile Links & Public Data" --> System
+    
+    System -- "Email/Username" --> Breach
+    Breach -- "Breached Records Data" --> System
+    
+    System -- "Domain/Username" --> Whois
+    Whois -- "Domain Registration Data" --> System
+    
+    System -- "Aggregated Scan Results" --> AI
+    AI -- "AI-Generated Security Summary" --> System
+    
+    System -- "Store Scan History & Results" --> DB
+    DB -- "Fetch Scan History" --> System
+            </div>
+        </div>
+
+        <hr style="border: 1px solid #e2e8f0; margin: 3rem 0;" />
+
+        <div class="diagram-section">
+            <h2>Level 1: System Processes Diagram</h2>
+            <div class="mermaid">
+graph TD
+    User[User / Client Frontend]
+    Supabase[(Supabase DB / scan_history)]
+    GoogleAPI[Google Search / SerpAPI]
+    SocialAPI[Social Media Platforms]
+    BreachAPI[HaveIBeenPwned / Leak DBs]
+    WhoisAPI[WHOIS / DNS Services]
+    EmailAPI[Email OSINT Services]
+    AI_API[OpenAI / AI Service]
+
+    Cache[(In-Memory Cache)]
+
+    P1((1.0 Request Validation))
+    P2((2.0 Data Collection Engine))
+    P3((3.0 Deduplication & Risk Analysis))
+    P4((4.0 AI Insight Generation))
+    P5((5.0 Data Formatting & Storage))
+
+    User -- "Scan Query Payload" --> P1
+    P1 -- "Validation Error (e.g., Invalid Input)" --> User
+    
+    P1 -- "Check Cache" --> Cache
+    Cache -- "Cached Result Found" --> P1
+    P1 -- "Cached Scan Data" --> User
+    
+    P1 -- "Validated Target Identifiers" --> P2
+    
+    P2 -- "Target Details" --> GoogleAPI
+    GoogleAPI -- "Search Results" --> P2
+    
+    P2 -- "Usernames / Names" --> SocialAPI
+    SocialAPI -- "Profile Data" --> P2
+    
+    P2 -- "Email / Username" --> BreachAPI
+    BreachAPI -- "Breach Records" --> P2
+    
+    P2 -- "Domain / Username" --> WhoisAPI
+    WhoisAPI -- "Domain Info" --> P2
+    
+    P2 -- "Email" --> EmailAPI
+    EmailAPI -- "Email OSINT Data" --> P2
+    
+    P2 -- "Raw Scan Results" --> P3
+    
+    P3 -- "Risk Score & Deduplicated Data" --> P4
+    P4 -- "Results & Score" --> AI_API
+    AI_API -- "Generated Security Summary" --> P4
+    
+    P4 -- "Full Report (Data + AI Summary)" --> P5
+    
+    P5 -- "Save new scan record" --> Supabase
+    Supabase -- "Confirmation" --> P5
+    
+    P5 -- "Store in Cache" --> Cache
+    
+    P5 -- "JSON Response (Scan Data)" --> User
+            </div>
+        </div>
+    </div>
+    <script>
+        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    </script>
+</body>
+</html>

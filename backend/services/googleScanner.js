@@ -6,8 +6,19 @@ const axios = require("axios");
  * it falls back to SerpAPI (100/month limit).
  */
 const googleScanner = async (name, username) => {
-  const query = [name, username].filter(Boolean).join(" ").trim();
-  if (!query) return [];
+  // Build a precise query: quote each identifier and OR them together.
+  // e.g. name="Bhaskar Saikia", username="bhaskar_saikia1"
+  //   → '"Bhaskar Saikia" OR "bhaskar_saikia1"'
+  const terms = [name, username]
+    .filter(Boolean)
+    .map(t => t.trim())
+    .filter(t => t.length > 0);
+
+  if (terms.length === 0) return [];
+
+  // De-duplicate (e.g. if name and username are the same)
+  const unique = [...new Set(terms)];
+  const query = unique.map(t => `"${t}"`).join(" OR ");
 
   const googleKey = process.env.GOOGLE_API_KEY;
   const googleCx  = process.env.GOOGLE_SEARCH_ENGINE_ID;

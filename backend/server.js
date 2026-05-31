@@ -32,8 +32,6 @@ app.use(
     origin: (origin, callback) => {
       // Allow requests with no origin (server-to-server / curl)
       if (!origin) return callback(null, true);
-      // Allow any *.vercel.app subdomain (covers all preview + production deployments)
-      if (origin.endsWith(".vercel.app")) return callback(null, true);
       // Allow any explicitly configured origin
       if (allowedOrigins.includes(origin)) return callback(null, true);
       console.warn("CORS blocked origin:", origin);

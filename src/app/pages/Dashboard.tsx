@@ -21,6 +21,7 @@ import {
   Check,
   Loader2,
   Activity,
+  Lock,
 } from "lucide-react";
 
 import { generatePDFReport } from "../utils/pdfReportGenerator";
@@ -45,6 +46,12 @@ import { SecurityChecklist } from "../components/SecurityChecklist";
 import { ExposureMap } from "../components/ExposureMap";
 import { ScanComparison } from "../components/ScanComparison";
 import { PhishingSimulator } from "../components/PhishingSimulator";
+import { PrivacyRequestGenerator } from "../components/PrivacyRequestGenerator";
+import { DataGraphVisualization } from "../components/DataGraphVisualization";
+import { ReverseImageSearch } from "../components/ReverseImageSearch";
+import { DataValuation } from "../components/DataValuation";
+import { DomainSpoofing } from "../components/DomainSpoofing";
+import { GlobalGlobe } from "../components/GlobalGlobe";
 
 import { Button } from "../components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
@@ -52,7 +59,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 
 import { AnimatePresence } from "motion/react";
 
-import { scanProfile, getScanHistory } from "../services/scannerService";
+import { scanProfile, getScanHistory, getScanById } from "../services/scannerService";
 import { createSharedReport } from "../services/reportService";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -87,7 +94,11 @@ function parseQuery(query: string) {
     const parts = trimmed.split(" | ").map(p => p.trim()).filter(Boolean);
     const result: { username?: string; email?: string; name?: string } = {};
     for (const part of parts) {
-      if (part.startsWith("u:")) result.username = part.slice(2).trim();
+      if (part.startsWith("u:")) {
+        let u = part.slice(2).trim();
+        if (u.startsWith("@")) u = u.slice(1);
+        result.username = u;
+      }
       if (part.startsWith("e:")) result.email = part.slice(2).trim();
       if (part.startsWith("n:")) result.name = part.slice(2).trim();
     }
@@ -97,6 +108,14 @@ function parseQuery(query: string) {
   // ── Simple single-field detection ──
   if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
     return { email: trimmed };
+  }
+
+  // Handle handles starting with @ (e.g. @username)
+  if (trimmed.startsWith("@")) {
+    const stripped = trimmed.slice(1);
+    if (!stripped.includes(" ") && /^[\w.\-]+$/.test(stripped)) {
+      return { username: stripped };
+    }
   }
 
   if (trimmed.includes("linkedin.com/in/")) {
@@ -218,8 +237,15 @@ export function Dashboard() {
   const { theme, setTheme } = useTheme();
 
   const [isScanning, setIsScanning] = useState(false);
-  const [hasScanned, setHasScanned] = useState(false);
-  const [scanData, setScanData] = useState<ScanData | null>(null);
+  const [hasScanned, setHasScanned] = useState(() => !!sessionStorage.getItem("dashboard_scanData"));
+  const [scanData, setScanData] = useState<ScanData | null>(() => {
+    try {
+      const saved = sessionStorage.getItem("dashboard_scanData");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [scanError, setScanError] = useState<string | null>(null);
   const [scanWarnings, setScanWarnings] = useState<string[]>([]);
   const [scanHistory, setScanHistory] = useState<ScanHistoryItem[]>([]);
@@ -233,6 +259,7 @@ export function Dashboard() {
   const [currentQuery, setCurrentQuery] = useState<string>("");
   const [previousScanData, setPreviousScanData] = useState<ScanData | null>(null);
   const [previousScanDate, setPreviousScanDate] = useState<string | null>(null);
+  const [showDemoLimitModal, setShowDemoLimitModal] = useState(false);
 
   const isDemo = user?.email === "demo@footprintanalyzer.com";
 
@@ -248,6 +275,40 @@ export function Dashboard() {
       console.error("Failed to load history", error);
     } finally {
       setIsHistoryLoading(false);
+    }
+  };
+
+  const handleLoadHistoryItem = async (id: string) => {
+    try {
+      setIsScanning(true);
+      const res = await getScanById(id);
+      if (res?.data) {
+        const record = res.data;
+        const mappedData: ScanData = {
+          input: { name: record.query, username: record.query },
+          socialResults: record.social_results || [],
+          breachResults: record.breach_results || [],
+          googleResults: record.google_results || [],
+          mentionResults: record.mention_results || [],
+          emailResults: record.email_results || null,
+          whoisResults: record.whois_results || null,
+          riskScore: { 
+             score: record.risk_score || 0, 
+             level: record.risk_score >= 70 ? "High" : record.risk_score >= 40 ? "Medium" : "Low" 
+          },
+          aiSummary: record.ai_summary || undefined
+        };
+        
+        setScanData(mappedData);
+        setCurrentQuery(record.query);
+        setHasScanned(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        toast.success("Loaded previous scan results");
+      }
+    } catch (error) {
+      toast.error("Failed to load history item");
+    } finally {
+      setIsScanning(false);
     }
   };
 
@@ -275,11 +336,27 @@ export function Dashboard() {
   };
 
   useEffect(() => {
-
     loadHistory();
   }, []);
 
+  useEffect(() => {
+    if (scanData) {
+      sessionStorage.setItem("dashboard_scanData", JSON.stringify(scanData));
+    } else {
+      sessionStorage.removeItem("dashboard_scanData");
+    }
+  }, [scanData]);
+
   const handleSearch = async (query: string) => {
+    if (isDemo) {
+      const demoScans = parseInt(localStorage.getItem("demoScanCount") || "0");
+      if (demoScans >= 2) {
+        setShowDemoLimitModal(true);
+        return;
+      }
+      localStorage.setItem("demoScanCount", (demoScans + 1).toString());
+    }
+
     setIsScanning(true);
     setHasScanned(false);
     setScanError(null);
@@ -410,7 +487,7 @@ export function Dashboard() {
         .slice(-8)
         .map((item) => ({
           date: item.created_at
-            ? new Date(item.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+            ? new Date(item.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " " + new Date(item.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
             : "—",
           posts: Array.isArray(item.social_results) ? item.social_results.length : 0,
           searches: Array.isArray(item.google_results) ? item.google_results.length : 0,
@@ -503,6 +580,8 @@ export function Dashboard() {
             >
               <Settings className="h-4 w-4" />
             </Button>
+
+
 
 
             <Button
@@ -667,6 +746,8 @@ export function Dashboard() {
                       <div className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed whitespace-pre-wrap"
                         dangerouslySetInnerHTML={{
                           __html: scanData.aiSummary
+                            .replace(/</g, "&lt;")
+                            .replace(/>/g, "&gt;")
                             .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
                             .replace(/\*(.+?)\*/g, '<em>$1</em>')
                         }}
@@ -757,16 +838,7 @@ export function Dashboard() {
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
-                          <Button
-                            onClick={handleShare}
-                            disabled={sharing || !scanData}
-                            variant="outline"
-                            size="sm"
-                            className="border-slate-300 bg-white/80 dark:border-slate-700 dark:bg-slate-800/80 rounded-xl"
-                          >
-                            {sharing ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : copied ? <Check className="h-4 w-4 mr-1.5 text-green-500" /> : <Share2 className="h-4 w-4 mr-1.5" />}
-                            {copied ? "Copied!" : "Share"}
-                          </Button>
+
                           <Button
                             onClick={handleExportPDF}
                             disabled={isExporting}
@@ -798,6 +870,21 @@ export function Dashboard() {
                         <TabsTrigger value="compare" className="rounded-xl px-4 py-2 text-purple-600 font-bold bg-purple-50 dark:bg-purple-900/30">
                           <Activity className="h-3.5 w-3.5 mr-1.5" />
                           Compare
+                        </TabsTrigger>
+                        <TabsTrigger value="graph" className="rounded-xl px-4 py-2 text-indigo-600 font-bold bg-indigo-50 dark:bg-indigo-900/30">
+                          Link Graph
+                        </TabsTrigger>
+                        <TabsTrigger value="optout" className="rounded-xl px-4 py-2 text-emerald-600 font-bold bg-emerald-50 dark:bg-emerald-900/30">
+                          Opt-Out
+                        </TabsTrigger>
+                        <TabsTrigger value="image_search" className="rounded-xl px-4 py-2 text-pink-600 font-bold bg-pink-50 dark:bg-pink-900/30">
+                          Image Search
+                        </TabsTrigger>
+                        <TabsTrigger value="valuation" className="rounded-xl px-4 py-2 text-teal-600 font-bold bg-teal-50 dark:bg-teal-900/30">
+                          Financial Risk
+                        </TabsTrigger>
+                        <TabsTrigger value="spoofing" className="rounded-xl px-4 py-2 text-cyan-600 font-bold bg-cyan-50 dark:bg-cyan-900/30">
+                          Domain Risk
                         </TabsTrigger>
                       </TabsList>
                     </div>
@@ -850,12 +937,19 @@ export function Dashboard() {
                     </TabsContent>
 
                     <TabsContent value="exposure" className="mt-0">
-                      <SectionCard title="Cross-Platform Exposure Map" icon={Globe}>
-                        <ExposureMap
-                          socialResults={scanData?.socialResults ?? []}
-                          breachResults={scanData?.breachResults ?? []}
-                        />
-                      </SectionCard>
+                      <div className="grid lg:grid-cols-2 gap-6">
+                        <SectionCard title="Cross-Platform Exposure Map" icon={Globe}>
+                          <ExposureMap
+                            socialResults={scanData?.socialResults ?? []}
+                            breachResults={scanData?.breachResults ?? []}
+                          />
+                        </SectionCard>
+                        <SectionCard title="Global Threat Vectors" icon={Globe}>
+                          <div className="h-[400px]">
+                            <GlobalGlobe scanData={scanData} />
+                          </div>
+                        </SectionCard>
+                      </div>
                     </TabsContent>
 
                     <TabsContent value="social" className="mt-0">
@@ -936,6 +1030,29 @@ export function Dashboard() {
                         />
                       </SectionCard>
                     </TabsContent>
+
+                    <TabsContent value="graph" className="mt-0">
+                      <DataGraphVisualization scanData={scanData} />
+                    </TabsContent>
+
+                    <TabsContent value="optout" className="mt-0">
+                      <PrivacyRequestGenerator 
+                        userName={scanData?.input?.name} 
+                        userEmail={scanData?.input?.email} 
+                      />
+                    </TabsContent>
+
+                    <TabsContent value="image_search" className="mt-0">
+                      <ReverseImageSearch />
+                    </TabsContent>
+
+                    <TabsContent value="valuation" className="mt-0">
+                      <DataValuation scanData={scanData} />
+                    </TabsContent>
+
+                    <TabsContent value="spoofing" className="mt-0">
+                      <DomainSpoofing scanData={scanData} />
+                    </TabsContent>
                   </Tabs>
                 </section>
               </>
@@ -974,7 +1091,8 @@ export function Dashboard() {
                   {scanHistory.slice(0, 6).map((item) => (
                     <div
                       key={item.id}
-                      className="rounded-2xl border border-slate-100 bg-slate-50 p-4"
+                      className="rounded-2xl border border-slate-100 bg-slate-50 p-4 cursor-pointer hover:bg-slate-100 transition-colors dark:bg-slate-900/50 dark:border-slate-800 dark:hover:bg-slate-800/80"
+                      onClick={() => handleLoadHistoryItem(item.id)}
                     >
                       <p className="break-all text-sm font-semibold text-slate-900">
                         {item.query}
@@ -1063,6 +1181,35 @@ export function Dashboard() {
                 {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDemoLimitModal} onOpenChange={setShowDemoLimitModal}>
+        <DialogContent className="sm:max-w-md bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-slate-200 dark:border-slate-800">
+          <DialogHeader>
+            <DialogTitle className="text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <Lock className="w-5 h-5 text-amber-500" />
+              Demo Limit Reached
+            </DialogTitle>
+            <DialogDescription className="text-slate-500 dark:text-slate-400">
+              You've used all of your free demo scans! Create a free account to run unlimited deep scans, track your exposure over time, and unlock all advanced features.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 py-4">
+            <Button
+              onClick={handleLogout}
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-0 shadow-lg shadow-blue-200 dark:shadow-none"
+            >
+              Create Free Account
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowDemoLimitModal(false)}
+              className="w-full border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+              Cancel
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

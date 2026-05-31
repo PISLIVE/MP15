@@ -6,13 +6,11 @@ import {
   ShieldCheck,
   CheckCircle2,
   Search,
-  Link2,
   Users,
   Eye,
   AlertCircle,
   ShieldAlert,
   ShieldQuestion,
-  Lock,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -37,21 +35,7 @@ function getPlatformAccent(platform: string) {
   return "from-blue-500 to-indigo-600";
 }
 
-function getPrivacyLink(platform: string) {
-  const p = platform.toLowerCase();
-  if (p.includes("facebook")) return "https://www.facebook.com/settings?tab=privacy";
-  if (p.includes("twitter") || p.includes(" x") || p === "x") return "https://twitter.com/settings/privacy_and_safety";
-  if (p.includes("instagram")) return "https://www.instagram.com/accounts/privacy_and_security/";
-  if (p.includes("linkedin")) return "https://www.linkedin.com/psettings/privacy";
-  if (p.includes("github")) return "https://github.com/settings/profile";
-  if (p.includes("reddit")) return "https://www.reddit.com/settings/privacy";
-  if (p.includes("youtube") || p.includes("google")) return "https://myaccount.google.com/privacy";
-  if (p.includes("tiktok")) return "https://www.tiktok.com/setting";
-  if (p.includes("pinterest")) return "https://www.pinterest.com/settings/privacy/";
-  if (p.includes("snapchat")) return "https://accounts.snapchat.com/accounts/privacy";
-  
-  return `https://www.google.com/search?q=how+to+make+${encodeURIComponent(platform)}+account+private`;
-}
+
 
 function VisibilityBadge({ score }: { score?: "low" | "medium" | "high" }) {
   switch (score) {
@@ -142,8 +126,7 @@ function ProfileCard({ item, index }: { item: SocialResult; index: number }) {
              </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <Button 
+          <Button 
               variant="outline" 
               className="w-full h-9 rounded-xl border-slate-200 bg-slate-50 hover:bg-white hover:text-blue-600 transition-all dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800"
               onClick={() => window.open(item.url, '_blank')}
@@ -151,15 +134,6 @@ function ProfileCard({ item, index }: { item: SocialResult; index: number }) {
               <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
               Live Profile
             </Button>
-            <Button 
-              variant="outline" 
-              className="w-full h-9 rounded-xl border-slate-200 bg-slate-50 hover:bg-white hover:text-amber-600 transition-all dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800"
-              onClick={() => window.open(getPrivacyLink(item.platform), '_blank')}
-            >
-              <Lock className="h-3.5 w-3.5 mr-1.5" />
-              Manage Privacy
-            </Button>
-          </div>
         </div>
       </div>
     </motion.div>

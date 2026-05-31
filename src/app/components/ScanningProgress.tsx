@@ -154,4 +154,3 @@ export function ScanningProgress({ isBackendComplete }: ScanningProgressProps) {
     </motion.div>
   );
 }
-

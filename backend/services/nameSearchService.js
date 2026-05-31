@@ -66,11 +66,34 @@ function isProfileUrl(link, domain) {
  */
 function nameMatchesResult(fullName, title, snippet) {
   const nameLower = fullName.toLowerCase().trim();
-  const nameParts = nameLower.split(/\s+/).filter(Boolean);
   const combined = ((title || "") + " " + (snippet || "")).toLowerCase();
 
-  // Full name match — most reliable
+  // Direct full match (including username matches like "@bhaskar_saikia1")
   if (combined.includes(nameLower)) return true;
+
+  // Handle @ prefix variations (e.g., "@bhaskar_saikia1" in a title)
+  if (combined.includes(`@${nameLower}`)) return true;
+
+  // For username-style queries (with underscores/digits), strip non-alpha and try matching
+  const looksLikeUsername = !fullName.includes(" ") && (/[_\-]/.test(fullName) || /\d/.test(fullName));
+  if (looksLikeUsername) {
+    // Strip separators: "bhaskar_saikia1" → "bhaskarsaikia1" or match each segment
+    const stripped = nameLower.replace(/[_\-]/g, "");
+    if (combined.includes(stripped)) return true;
+
+    // Match significant segments of the username (separated by _ or -)
+    const segments = nameLower.split(/[_\-]/).filter(s => s.length >= 3);
+    if (segments.length >= 2) {
+      const matchCount = segments.filter(s => combined.includes(s)).length;
+      return matchCount >= 2;
+    }
+    if (segments.length === 1 && segments[0].length >= 4) {
+      return combined.includes(segments[0]);
+    }
+    return false;
+  }
+
+  const nameParts = nameLower.split(/\s+/).filter(Boolean);
 
   // Multi-word names: at least 2 parts must match
   if (nameParts.length >= 2) {
@@ -130,10 +153,21 @@ async function searchViaSerpAPI(name, seenUrls) {
   if (!serpKey || serpKey === "your_serpapi_key_here") return [];
 
   const results = [];
-  const queries = [
-    `"${name}" facebook profile`,
-    `"${name}" linkedin OR instagram OR twitter`,
-  ];
+  
+  // Detect if this looks like a username (contains underscore or digits, no spaces)
+  const looksLikeUsername = !name.includes(" ") && (/[_\-]/.test(name) || /\d/.test(name));
+  
+  const queries = looksLikeUsername
+    ? [
+        // Username-specific queries (more targeted)
+        `"${name}" instagram`,
+        `site:instagram.com "${name}"`,
+        `"${name}" (instagram OR facebook OR twitter OR tiktok) profile`,
+      ]
+    : [
+        `"${name}" facebook profile`,
+        `"${name}" linkedin OR instagram OR twitter`,
+      ];
 
   for (const query of queries) {
     try {

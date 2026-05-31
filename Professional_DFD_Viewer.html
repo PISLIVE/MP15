@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional DFD - Digital Footprint Analyzer</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; background: #e2e8f0; padding: 2rem; color: #0f172a;}
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 3rem; border-radius: 12px; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); }
+        .diagram-section { margin-bottom: 4rem; text-align: center; border: 1px solid #cbd5e1; padding: 2rem; border-radius: 8px; background: #f8fafc;}
+        h1, h2 { color: #0f172a; text-align: center; margin-bottom: 1rem;}
+        .instructions { text-align: center; color: #475569; margin-bottom: 2rem; }
+        .legend { display: flex; justify-content: center; gap: 2rem; margin-bottom: 2rem; font-size: 0.9rem; color: #334155;}
+        .legend-item { display: flex; align-items: center; gap: 0.5rem; }
+        .legend-box { width: 20px; height: 20px; border: 2px solid #333; }
+        .legend-process { border-radius: 50%; }
+        .legend-store { border-left: none; border-right: none; border-radius: 4px;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Professional Data Flow Diagrams (DFD)</h1>
+        <p class="instructions">
+            <strong>Standard Gane & Sarson / Yourdon Notation:</strong><br>
+            Squares = External Entities | Circles = Processes | Cylinders = Data Stores | Arrows = Data Flows
+        </p>
+
+        <div class="legend">
+            <div class="legend-item"><div class="legend-box" style="background:#e0f2fe; border-color:#0284c7;"></div> External Entity</div>
+            <div class="legend-item"><div class="legend-box legend-process" style="background:#fef08a; border-color:#ca8a04;"></div> Process</div>
+            <div class="legend-item"><div class="legend-box legend-store" style="background:#fce7f3; border-color:#db2777;"></div> Data Store</div>
+        </div>
+
+        <div class="diagram-section">
+            <h2>Level 0 Context Diagram</h2>
+            <div class="mermaid">
+graph TD
+    %% Styling
+    classDef entity fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0f172a,font-weight:bold
+    classDef process fill:#fef08a,stroke:#ca8a04,stroke-width:2px,color:#0f172a,font-weight:bold
+
+    %% Entities
+    User[Client / User]:::entity
+    GoogleAPI[Search Engine APIs]:::entity
+    SocialAPI[Social Media APIs]:::entity
+    BreachAPI[Breach Databases]:::entity
+    WhoisAPI[DNS/WHOIS Services]:::entity
+    AI_API[OpenAI Service]:::entity
+
+    %% System
+    System((0.0 Digital Footprint Analyzer System)):::process
+
+    %% Flows
+    User -->|Scan Request payload| System
+    System -->|JSON Scan Report & Alerting| User
+    
+    System -->|Name/Username Queries| GoogleAPI
+    GoogleAPI -->|Search Results JSON| System
+    
+    System -->|Exact Target Identifiers| SocialAPI
+    SocialAPI -->|Profile Metadata| System
+    
+    System -->|Email Address| BreachAPI
+    BreachAPI -->|Breach Records| System
+    
+    System -->|Domain String| WhoisAPI
+    WhoisAPI -->|Registrar Data| System
+    
+    System -->|Aggregated Context| AI_API
+    AI_API -->|Security Summary Text| System
+            </div>
+        </div>
+
+        <div class="diagram-section">
+            <h2>Level 1 Processes Diagram (Scan Execution Architecture)</h2>
+            <p style="text-align: left; color: #475569; font-size: 0.95rem; margin-bottom: 2rem;">
+                This diagram accurately maps the exact execution flow found in <code>scanController.js</code>. Data flows concurrently into multiple external scanners to maximize speed, followed by a unified deduplication phase.
+            </p>
+            <div class="mermaid">
+graph TD
+    %% Styling
+    classDef entity fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0f172a,font-weight:bold
+    classDef process fill:#fef08a,stroke:#ca8a04,stroke-width:2px,color:#0f172a,font-weight:bold
+    classDef store fill:#fce7f3,stroke:#db2777,stroke-width:2px,color:#0f172a,font-weight:bold
+
+    %% Entities
+    User[Client Application]:::entity
+    ExtAPI[External APIs]:::entity
+    AI[AI Service]:::entity
+
+    %% Data Stores
+    D1[(D1: scanCache Map)]:::store
+    D2[(D2: Supabase scan_history)]:::store
+
+    %% Processes
+    P1((1.0 Validate & Parse Input)):::process
+    P2((2.0 Check Cache)):::process
+    P3((3.0 Execute Concurrent Scanners)):::process
+    P4((4.0 Aggregate & Deduplicate)):::process
+    P5((5.0 Calculate Risk Score)):::process
+    P6((6.0 Generate AI Summary)):::process
+    P7((7.0 Store Results & Respond)):::process
+
+    %% Flows
+    User -->|Request: {name, email, username}| P1
+    P1 -->|Validation Errors| User
+    P1 -->|Parsed Target Data| P2
+    
+    P2 -->|Query Hash| D1
+    D1 -.->|Cached Data Hit| P2
+    P2 -->|Cached JSON Response| User
+    
+    P2 -->|Cache Miss: Target Data| P3
+    
+    P3 -->|Specific Identifiers| ExtAPI
+    ExtAPI -->|Raw Profile, Search, Breach Data| P3
+    
+    P3 -->|Unfiltered Result Sets| P4
+    P4 -->|Normalized Profiles & Data| P5
+    
+    P5 -->|Risk Value + Scanned Data| P6
+    P6 -->|Prompt Context| AI
+    AI -->|LLM Security Insight| P6
+    
+    P6 -->|Complete Report Payload| P7
+    
+    P7 -->|Insert Scan Record| D2
+    P7 -->|Save with Timestamp| D1
+    P7 -->|Final JSON Output| User
+            </div>
+        </div>
+    </div>
+    <script>
+        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    </script>
+</body>
+</html>

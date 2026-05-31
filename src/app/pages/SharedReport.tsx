@@ -194,6 +194,8 @@ export function SharedReport() {
                <div className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap relative z-10"
                  dangerouslySetInnerHTML={{
                    __html: scan.aiSummary
+                     .replace(/</g, "&lt;")
+                     .replace(/>/g, "&gt;")
                      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
                      .replace(/\*(.+?)\*/g, '<em>$1</em>')
                  }}

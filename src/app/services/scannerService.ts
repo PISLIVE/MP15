@@ -72,4 +72,31 @@ export const generatePhishingSimulation = async (targetData: any) => {
     console.error("Phishing Simulation API error:", error);
     throw error;
   }
+};
+
+export const scanDomains = async (baseName: string) => {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await axios.post(`${API_URL}/scan-domains`, { baseName }, { headers });
+    return response.data;
+  } catch (error) {
+    console.error("Domain Scan API error:", error);
+    throw error;
+  }
+};
+
+export const scanImage = async (file: File) => {
+  try {
+    const headers = await getAuthHeaders();
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const response = await axios.post(`${API_URL}/scan-image`, formData, { 
+      headers: { ...headers, 'Content-Type': 'multipart/form-data' } 
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Image Scan API error:", error);
+    throw error;
+  }
 };
