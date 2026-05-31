@@ -152,7 +152,18 @@ export function ReverseImageSearch() {
                     <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">{result.description}</p>
                     <div className="flex justify-between items-center text-xs">
                       <span className="text-slate-500 font-medium">{result.date}</span>
-                      <Button variant="ghost" size="sm" className="h-8 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30">View Source</Button>
+                      {result.sourceUrl ? (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                          onClick={() => window.open(result.sourceUrl, '_blank', 'noopener,noreferrer')}
+                        >
+                          View Source ↗
+                        </Button>
+                      ) : (
+                        <span className="text-slate-400 text-xs italic">No source URL</span>
+                      )}
                     </div>
                   </Card>
                 </motion.div>
