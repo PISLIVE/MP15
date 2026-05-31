@@ -68,14 +68,11 @@ const scanProfile = async (req, res) => {
         
         // We still need to save this to the user's history even if it was a cache hit!
         await supabase.from("scan_history").insert({
-          user_id: req.user?.id,
           query: name || username || email,
           social_results: cached.data.socialResults,
           breach_results: cached.data.breachResults,
           google_results: cached.data.googleResults,
           mention_results: cached.data.mentionResults,
-          email_results: cached.data.emailResults,
-          whois_results: cached.data.whoisResults,
           risk_score: cached.data.riskScore?.score || 0,
           ai_summary: cached.data.aiSummary
         });
@@ -329,14 +326,11 @@ const scanProfile = async (req, res) => {
     await supabase
       .from("scan_history")
       .insert({
-        user_id: req.user?.id,
         query: name || username || email,
         social_results: socialResults,
         breach_results: breachResults,
         google_results: googleResults,
         mention_results: mentionResults,
-        email_results: emailResults,
-        whois_results: whoisResults,
         risk_score: riskScore.score,
         ai_summary: aiSummary
       })
