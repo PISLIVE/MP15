@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Architecture & Workflow - A4 Printable</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <style>
+        /* UI Styles */
+        body { font-family: system-ui, -apple-system, sans-serif; background: #e2e8f0; padding: 2rem; color: #0f172a; display: flex; flex-direction: column; align-items: center; }
+        .controls { margin-bottom: 2rem; display: flex; gap: 1rem; background: white; padding: 1rem 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgb(0 0 0 / 0.1); }
+        button { cursor: pointer; padding: 0.75rem 1.5rem; border: none; border-radius: 6px; font-weight: bold; font-size: 1rem; transition: background 0.2s; }
+        .btn-pdf { background: #0284c7; color: white; }
+        .btn-pdf:hover { background: #0369a1; }
+        .btn-png { background: #16a34a; color: white; }
+        .btn-png:hover { background: #15803d; }
+        
+        /* A4 Page Styling (Portrait) */
+        .a4-page {
+            width: 210mm; /* A4 Portrait width */
+            min-height: 297mm; /* A4 Portrait height */
+            background: white;
+            padding: 15mm;
+            box-sizing: border-box;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            margin-bottom: 2rem;
+            position: relative;
+        }
+
+        .header { text-align: center; margin-bottom: 10mm; border-bottom: 2px solid #cbd5e1; padding-bottom: 5mm; }
+        h1 { font-size: 24px; margin: 0 0 5px 0; }
+        .subtitle { color: #64748b; font-size: 14px; }
+        
+        /* Diagram Container */
+        .mermaid { display: flex; justify-content: center; width: 100%; margin-top: 5mm; }
+
+        /* Print Specific CSS */
+        @media print {
+            @page { size: A4 portrait; margin: 0; }
+            body { background: white; padding: 0; }
+            .controls { display: none !important; }
+            .a4-page { width: 100%; min-height: 100vh; margin: 0; padding: 15mm; box-shadow: none; page-break-after: always; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <button class="btn-pdf" onclick="window.print()">Save as A4 PDF</button>
+        <button class="btn-png" onclick="downloadPNG()">Download PNG Images</button>
+    </div>
+
+    <!-- Architecture Diagram A4 Page -->
+    <div class="a4-page">
+        <div class="header">
+            <h1>System Architecture Diagram</h1>
+            <div class="subtitle">Digital Footprint Analyzer 3-Tier Technical Architecture</div>
+        </div>
+        
+        <div class="mermaid">
+flowchart TB
+    classDef client fill:#bfdbfe,stroke:#2563eb,stroke-width:2px,color:#0f172a,rx:5,ry:5,font-weight:bold
+    classDef server fill:#fef08a,stroke:#ca8a04,stroke-width:2px,color:#0f172a,rx:5,ry:5,font-weight:bold
+    classDef database fill:#bbf7d0,stroke:#16a34a,stroke-width:2px,color:#0f172a,rx:5,ry:5,font-weight:bold
+    classDef external fill:#fecdd3,stroke:#e11d48,stroke-width:2px,color:#0f172a,rx:5,ry:5,font-weight:bold
+    classDef auth fill:#ddd6fe,stroke:#7c3aed,stroke-width:2px,color:#0f172a,rx:5,ry:5,font-weight:bold
+
+    subgraph Client_Tier [Presentation Layer / Client]
+        direction TB
+        UI[React.js SPA UI]:::client
+        State[Local Storage & Session State]:::client
+        UI <--> State
+    end
+
+    subgraph Application_Tier [Application Layer / Node.js Backend]
+        direction TB
+        Routes[Express.js API Router]:::server
+        AuthMid[JWT Auth Middleware]:::server
+        Controllers[Controllers / Business Logic]:::server
+        Services[Scanner & Integration Services]:::server
+        Cache[(Node In-Memory Cache)]:::server
+        
+        Routes --> AuthMid
+        AuthMid --> Controllers
+        Controllers <--> Services
+        Controllers <--> Cache
+    end
+
+    subgraph Data_Tier [Data & Identity Layer]
+        direction TB
+        SupabaseAuth[Supabase Authentication]:::auth
+        SupabaseDB[(Supabase PostgreSQL)]:::database
+    end
+
+    subgraph External_Services [External Third-Party Integrations]
+        direction LR
+        OSINT[OSINT / Breach DBs]:::external
+        Social[Social Media APIs]:::external
+        LLM[OpenAI / AI Engine]:::external
+    end
+
+    UI <--> |REST API HTTP/JSON| Routes
+    UI <--> |OAuth / Login SDK| SupabaseAuth
+    
+    AuthMid -.-> |Verify JWT Token| SupabaseAuth
+    Controllers <--> |pg_query| SupabaseDB
+    
+    Services <--> |Axios Requests| OSINT
+    Services <--> |Axios / Scrape| Social
+    Services <--> |Prompt payload| LLM
+        </div>
+    </div>
+
+    <!-- Workflow Diagram A4 Page -->
+    <div class="a4-page">
+        <div class="header">
+            <h1>System Workflow Flowchart</h1>
+            <div class="subtitle">End-to-end execution flow of the Digital Footprint Scan</div>
+        </div>
+        
+        <div class="mermaid">
+flowchart TD
+    classDef userAction fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0f172a,font-weight:bold,rx:10,ry:10
+    classDef systemProcess fill:#fef08a,stroke:#ca8a04,stroke-width:2px,color:#0f172a,rx:5,ry:5
+    classDef decision fill:#fce7f3,stroke:#db2777,stroke-width:2px,color:#0f172a
+    classDef database fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#0f172a
+
+    Start([User Logs In]):::userAction --> Dashboard[Lands on Dashboard]:::userAction
+    Dashboard --> Input[/Enters Search Target/]:::userAction
+    Input --> Trigger([Clicks Scan]):::userAction
+
+    subgraph Backend_Processing [Core Backend Processing Engine]
+        direction TB
+        Trigger --> Validate{Is Input Valid?}:::decision
+        Validate -- No --> ShowError[Show UI Error]:::systemProcess
+        Validate -- Yes --> CheckCache{In Cache &<br/>Not Expired?}:::decision
+        
+        CheckCache -- Yes --> ReturnCache[Return Cached Report]:::systemProcess
+        CheckCache -- No --> RunScanners[Launch Concurrent Scanners]:::systemProcess
+        
+        RunScanners --> S1[Google/SerpAPI]:::systemProcess
+        RunScanners --> S2[Social Media APIs]:::systemProcess
+        RunScanners --> S3[HaveIBeenPwned DB]:::systemProcess
+        RunScanners --> S4[WHOIS/DNS Check]:::systemProcess
+        
+        S1 & S2 & S3 & S4 --> Aggregate[Aggregate Profiles]:::systemProcess
+        Aggregate --> CalcRisk[Calculate Risk Score]:::systemProcess
+        CalcRisk --> AISummary[Call OpenAI]:::systemProcess
+        
+        AISummary --> SaveDB[(Save to Supabase)]:::database
+        SaveDB --> SaveCache[(Update Memory Cache)]:::database
+    end
+
+    ReturnCache --> Render[Render Charts & UI]:::systemProcess
+    SaveCache --> Render
+    
+    subgraph Post_Scan_Features [Post-Scan User Actions]
+        direction TB
+        Render --> Review([User Reviews Footprint]):::userAction
+        Review --> ActionExport[/Export as PDF Report/]:::userAction
+        Review --> ActionShare[/Generate Public Link/]:::userAction
+        Review --> ActionMonitor[/Add to 24/7 Watchlist/]:::userAction
+    end
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({ startOnLoad: true, theme: 'default', securityLevel: 'loose' });
+
+        function downloadPNG() {
+            alert("Generating PNG images. Please wait a moment...");
+            
+            const svgs = document.querySelectorAll('.mermaid svg');
+            if (svgs.length === 0) return alert("Diagrams are still loading...");
+
+            svgs.forEach((svg, index) => {
+                const bbox = svg.getBoundingClientRect();
+                
+                if (!svg.getAttribute('width')) svg.setAttribute('width', bbox.width);
+                if (!svg.getAttribute('height')) svg.setAttribute('height', bbox.height);
+
+                const xml = new XMLSerializer().serializeToString(svg);
+                const svg64 = btoa(unescape(encodeURIComponent(xml)));
+                const b64Start = 'data:image/svg+xml;base64,';
+                const image64 = b64Start + svg64;
+
+                const canvas = document.createElement('canvas');
+                const scale = 3; 
+                canvas.width = bbox.width * scale;
+                canvas.height = bbox.height * scale;
+                const ctx = canvas.getContext('2d');
+                
+                const img = new Image();
+                img.onload = function() {
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    const png = canvas.toDataURL('image/png', 1.0);
+                    const a = document.createElement('a');
+                    a.download = `Project_${index === 0 ? 'Architecture' : 'Workflow'}.png`;
+                    a.href = png;
+                    a.click();
+                };
+                img.src = image64;
+            });
+        }
+    </script>
+</body>
+</html>
