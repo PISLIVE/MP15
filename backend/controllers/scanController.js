@@ -549,19 +549,27 @@ const scanImage = async (req, res) => {
     const publicImageUrl = imgbbRes.data.data.url;
     console.log(`[Image Scan] ImgBB URL obtained: ${publicImageUrl}`);
 
-    // ── Step 3: Pass public URL to SerpAPI Google Lens ────────────────────────
-    console.log("[Image Scan] Running SerpAPI Google Lens reverse image search...");
+    // ── Step 3: Pass public URL to SerpAPI Google Reverse Image Search ─────────
+    console.log("[Image Scan] Running SerpAPI reverse image search...");
     const serpRes = await axios.get("https://serpapi.com/search", {
       params: {
-        engine: "google_lens",
-        url: publicImageUrl,
+        engine: "google_reverse_image",
+        image_url: publicImageUrl,
         api_key: serpApiKey,
       },
       timeout: 30000,
     });
 
-    const visualMatches = serpRes.data?.visual_matches || [];
+    console.log("[Image Scan] SerpAPI raw response keys:", Object.keys(serpRes.data || {}));
+
+    // SerpAPI google_reverse_image returns results under different keys
+    // Handle ALL possible response shapes
+    const imageResults = serpRes.data?.image_results || [];
     const knowledgeGraph = serpRes.data?.knowledge_graph;
+    const inlineImages = serpRes.data?.inline_images || [];
+    const relatedSearches = serpRes.data?.related_searches || [];
+
+    console.log(`[Image Scan] image_results: ${imageResults.length}, knowledge_graph: ${!!knowledgeGraph}, inline_images: ${inlineImages.length}`);
 
     // ── Step 4: Format results for the frontend ────────────────────────────────
     const results = [];
@@ -572,34 +580,50 @@ const scanImage = async (req, res) => {
         platform: knowledgeGraph.title,
         match: "95%",
         status: "high_risk",
-        description: `Entity identified via Google Knowledge Graph: ${knowledgeGraph.description || "Public figure or notable entity detected."}`,
+        description: `Identity detected via Google Knowledge Graph: ${knowledgeGraph.description || "Public figure or notable entity found."}`,
         date: new Date().toLocaleString(),
         sourceUrl: knowledgeGraph.website || null,
         thumbnail: knowledgeGraph.image || publicImageUrl,
       });
     }
 
-    // Map visual matches (limit to top 10)
-    visualMatches.slice(0, 10).forEach((match) => {
-      const domain = match.link ? new URL(match.link).hostname.replace("www.", "") : "Unknown Source";
-      const isHighRisk = ["facebook.com", "instagram.com", "twitter.com", "linkedin.com", "tiktok.com"].some(s => domain.includes(s));
+    // Map image_results (the main reverse image results)
+    imageResults.slice(0, 10).forEach((match, i) => {
+      let domain = "Unknown Source";
+      try { domain = match.link ? new URL(match.link).hostname.replace("www.", "") : "Unknown Source"; } catch {}
+      const isHighRisk = ["facebook.com", "instagram.com", "twitter.com", "x.com", "linkedin.com", "tiktok.com"].some(s => domain.includes(s));
       results.push({
         platform: match.title || domain,
-        match: match.position <= 3 ? "High" : match.position <= 7 ? "Medium" : "Low",
+        match: i <= 2 ? "High" : i <= 5 ? "Medium" : "Low",
         status: isHighRisk ? "high_risk" : "medium_risk",
-        description: `Visual match found on ${domain}. This image or a near-identical version appears publicly at this source.`,
+        description: `Visual match found on ${domain}. Snippet: "${(match.snippet || "").slice(0, 120)}"`,
         date: new Date().toLocaleString(),
         sourceUrl: match.link || null,
         thumbnail: match.thumbnail || null,
       });
     });
 
+    // Fallback: use inline images if main results are empty
+    if (results.length === 0 && inlineImages.length > 0) {
+      inlineImages.slice(0, 5).forEach((img, i) => {
+        results.push({
+          platform: img.source || `Indexed Image ${i + 1}`,
+          match: "Medium",
+          status: "medium_risk",
+          description: `A visually similar image was found indexed online at ${img.source || "an external source"}.`,
+          date: new Date().toLocaleString(),
+          sourceUrl: img.link || null,
+          thumbnail: img.thumbnail || img.original || null,
+        });
+      });
+    }
+
     if (results.length === 0) {
       results.push({
-        platform: "No Matches Found",
+        platform: "No Public Matches Found",
         match: "0%",
         status: "safe",
-        description: "Google Lens could not find any publicly indexed pages using this image. Your image does not appear to be widely distributed online.",
+        description: "Google could not find any publicly indexed pages using this image. This identity does not appear to be widely distributed online — a positive privacy result.",
         date: new Date().toLocaleString(),
       });
     }
