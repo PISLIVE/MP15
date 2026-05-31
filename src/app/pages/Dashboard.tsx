@@ -46,7 +46,6 @@ import { SecurityChecklist } from "../components/SecurityChecklist";
 import { ExposureMap } from "../components/ExposureMap";
 import { ScanComparison } from "../components/ScanComparison";
 import { PhishingSimulator } from "../components/PhishingSimulator";
-import { PrivacyRequestGenerator } from "../components/PrivacyRequestGenerator";
 import { DataGraphVisualization } from "../components/DataGraphVisualization";
 import { ReverseImageSearch } from "../components/ReverseImageSearch";
 import { DataValuation } from "../components/DataValuation";
@@ -874,9 +873,6 @@ export function Dashboard() {
                         <TabsTrigger value="graph" className="rounded-xl px-4 py-2 text-indigo-600 font-bold bg-indigo-50 dark:bg-indigo-900/30">
                           Link Graph
                         </TabsTrigger>
-                        <TabsTrigger value="optout" className="rounded-xl px-4 py-2 text-emerald-600 font-bold bg-emerald-50 dark:bg-emerald-900/30">
-                          Opt-Out
-                        </TabsTrigger>
                         <TabsTrigger value="image_search" className="rounded-xl px-4 py-2 text-pink-600 font-bold bg-pink-50 dark:bg-pink-900/30">
                           Image Search
                         </TabsTrigger>
@@ -1033,13 +1029,6 @@ export function Dashboard() {
 
                     <TabsContent value="graph" className="mt-0">
                       <DataGraphVisualization scanData={scanData} />
-                    </TabsContent>
-
-                    <TabsContent value="optout" className="mt-0">
-                      <PrivacyRequestGenerator 
-                        userName={scanData?.input?.name} 
-                        userEmail={scanData?.input?.email} 
-                      />
                     </TabsContent>
 
                     <TabsContent value="image_search" className="mt-0">
