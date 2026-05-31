@@ -65,6 +65,21 @@ const scanProfile = async (req, res) => {
       const cached = scanCache.get(cacheKey);
       if (Date.now() - cached.timestamp < CACHE_TTL) {
         console.log(`[Cache] Returning cached result for: ${cacheKey}`);
+        
+        // We still need to save this to the user's history even if it was a cache hit!
+        await supabase.from("scan_history").insert({
+          user_id: req.user?.id,
+          query: name || username || email,
+          social_results: cached.data.socialResults,
+          breach_results: cached.data.breachResults,
+          google_results: cached.data.googleResults,
+          mention_results: cached.data.mentionResults,
+          email_results: cached.data.emailResults,
+          whois_results: cached.data.whoisResults,
+          risk_score: cached.data.riskScore?.score || 0,
+          ai_summary: cached.data.aiSummary
+        });
+
         return res.status(200).json({
           success: true,
           cached: true,
@@ -377,6 +392,10 @@ const getScanHistory = async (req, res) => {
       });
     }
 
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    
     res.status(200).json({
       success: true,
       data
