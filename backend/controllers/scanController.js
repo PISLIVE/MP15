@@ -506,32 +506,105 @@ const scanImage = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ success: false, message: "No image uploaded" });
 
-    const apiKey = process.env.SERPAPI_KEY;
-    if (!apiKey) {
-      // Clean up the uploaded file
+    const serpApiKey = process.env.SERPAPI_KEY;
+    const imgbbKey = process.env.IMGBB_API_KEY;
+
+    if (!serpApiKey) {
       fs.unlinkSync(req.file.path);
       return res.status(200).json({
         success: true,
         mockFallback: true,
-        data: [
-          { platform: "API Key Missing", match: "0%", status: "safe", description: "Please add SERPAPI_KEY to your .env file to see real results. For now, this is a placeholder.", date: "Now" }
-        ]
+        data: [{ platform: "API Key Missing", match: "0%", status: "safe", description: "Add SERPAPI_KEY to your .env to enable real reverse image search.", date: "Now" }]
       });
     }
 
-    // Call SerpApi Google Lens
-    // Note: SerpApi doesn't natively accept binary uploads. 
-    // Wait, let's use a workaround or Google Reverse Image search endpoint of Serpapi if it supports image_url.
-    // If the image is local, we would need to upload it somewhere public first (like ImgBB) or use an API that supports direct file upload.
-    // However, since we don't have ImgBB key, we'll inform the user.
-    fs.unlinkSync(req.file.path);
-    return res.status(200).json({
-      success: true,
-      mockFallback: true,
-      data: [
-        { platform: "Local Image Upload Not Supported", match: "0%", status: "medium_risk", description: "To scan a local image via SerpApi, it must first be hosted on a public URL. Please configure an image hosting service (like ImgBB) in your backend.", date: "Now" }
-      ]
+    if (!imgbbKey) {
+      fs.unlinkSync(req.file.path);
+      return res.status(200).json({
+        success: false,
+        message: "IMGBB_API_KEY is not set in the .env file. Please add it to enable image hosting."
+      });
+    }
+
+    // ── Step 1: Read image and convert to base64 ─────────────────────────────
+    const imageBuffer = fs.readFileSync(req.file.path);
+    const base64Image = imageBuffer.toString("base64");
+    fs.unlinkSync(req.file.path); // Clean up local file immediately
+
+    // ── Step 2: Upload to ImgBB to get a public URL ───────────────────────────
+    console.log("[Image Scan] Uploading image to ImgBB...");
+    const imgbbFormData = new FormData();
+    imgbbFormData.append("key", imgbbKey);
+    imgbbFormData.append("image", base64Image);
+    imgbbFormData.append("expiration", "600"); // Auto-delete in 10 minutes for privacy
+
+    const imgbbRes = await axios.post("https://api.imgbb.com/1/upload", imgbbFormData, {
+      headers: imgbbFormData.getHeaders()
     });
+
+    if (!imgbbRes.data?.success) {
+      return res.status(500).json({ success: false, message: "Failed to upload image to ImgBB." });
+    }
+
+    const publicImageUrl = imgbbRes.data.data.url;
+    console.log(`[Image Scan] ImgBB URL obtained: ${publicImageUrl}`);
+
+    // ── Step 3: Pass public URL to SerpAPI Google Lens ────────────────────────
+    console.log("[Image Scan] Running SerpAPI Google Lens reverse image search...");
+    const serpRes = await axios.get("https://serpapi.com/search", {
+      params: {
+        engine: "google_lens",
+        url: publicImageUrl,
+        api_key: serpApiKey,
+      },
+      timeout: 30000,
+    });
+
+    const visualMatches = serpRes.data?.visual_matches || [];
+    const knowledgeGraph = serpRes.data?.knowledge_graph;
+
+    // ── Step 4: Format results for the frontend ────────────────────────────────
+    const results = [];
+
+    // Add knowledge graph entity if found (most authoritative result)
+    if (knowledgeGraph?.title) {
+      results.push({
+        platform: knowledgeGraph.title,
+        match: "95%",
+        status: "high_risk",
+        description: `Entity identified via Google Knowledge Graph: ${knowledgeGraph.description || "Public figure or notable entity detected."}`,
+        date: new Date().toLocaleString(),
+        sourceUrl: knowledgeGraph.website || null,
+        thumbnail: knowledgeGraph.image || publicImageUrl,
+      });
+    }
+
+    // Map visual matches (limit to top 10)
+    visualMatches.slice(0, 10).forEach((match) => {
+      const domain = match.link ? new URL(match.link).hostname.replace("www.", "") : "Unknown Source";
+      const isHighRisk = ["facebook.com", "instagram.com", "twitter.com", "linkedin.com", "tiktok.com"].some(s => domain.includes(s));
+      results.push({
+        platform: match.title || domain,
+        match: match.position <= 3 ? "High" : match.position <= 7 ? "Medium" : "Low",
+        status: isHighRisk ? "high_risk" : "medium_risk",
+        description: `Visual match found on ${domain}. This image or a near-identical version appears publicly at this source.`,
+        date: new Date().toLocaleString(),
+        sourceUrl: match.link || null,
+        thumbnail: match.thumbnail || null,
+      });
+    });
+
+    if (results.length === 0) {
+      results.push({
+        platform: "No Matches Found",
+        match: "0%",
+        status: "safe",
+        description: "Google Lens could not find any publicly indexed pages using this image. Your image does not appear to be widely distributed online.",
+        date: new Date().toLocaleString(),
+      });
+    }
+
+    return res.status(200).json({ success: true, data: results });
 
   } catch (error) {
     console.error("Image scan failed:", error);
