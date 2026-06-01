@@ -758,38 +758,38 @@ export function Dashboard() {
                 <section className="grid gap-6 lg:grid-cols-2">
                   <SectionCard title="Risk Summary" icon={Shield}>
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-2xl bg-slate-50 p-4">
-                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Risk level</p>
-                        <p className="mt-2 text-lg font-semibold text-slate-900">{riskLevel}</p>
+                      <div className="rounded-2xl bg-slate-50 dark:bg-slate-900/50 p-4">
+                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Risk level</p>
+                        <p className="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">{riskLevel}</p>
                       </div>
-                      <div className="rounded-2xl bg-slate-50 p-4">
-                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Privacy score</p>
-                        <p className="mt-2 text-lg font-semibold text-slate-900">{riskScore}</p>
+                      <div className="rounded-2xl bg-slate-50 dark:bg-slate-900/50 p-4">
+                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Privacy score</p>
+                        <p className="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">{riskScore}</p>
                       </div>
-                      <div className="rounded-2xl bg-slate-50 p-4">
-                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Profiles found</p>
-                        <p className="mt-2 text-lg font-semibold text-slate-900">{socialCount}</p>
+                      <div className="rounded-2xl bg-slate-50 dark:bg-slate-900/50 p-4">
+                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Profiles found</p>
+                        <p className="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">{socialCount}</p>
                       </div>
-                      <div className="rounded-2xl bg-slate-50 p-4">
-                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Public mentions</p>
-                        <p className="mt-2 text-lg font-semibold text-slate-900">{googleCount}</p>
+                      <div className="rounded-2xl bg-slate-50 dark:bg-slate-900/50 p-4">
+                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Public mentions</p>
+                        <p className="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">{googleCount}</p>
                       </div>
                     </div>
                   </SectionCard>
 
                   <SectionCard title="Scanned Input" icon={Link2}>
-                    <div className="space-y-3 text-sm text-slate-700">
-                      <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Name</p>
-                        <p className="mt-1 break-all font-medium text-slate-900">{scanData?.input?.name || "—"}</p>
+                    <div className="space-y-3 text-sm text-slate-700 dark:text-slate-300">
+                      <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 px-4 py-3">
+                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Name</p>
+                        <p className="mt-1 break-all font-medium text-slate-900 dark:text-slate-100">{scanData?.input?.name || "—"}</p>
                       </div>
-                      <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Email</p>
-                        <p className="mt-1 break-all font-medium text-slate-900">{scanData?.input?.email || "—"}</p>
+                      <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 px-4 py-3">
+                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Email</p>
+                        <p className="mt-1 break-all font-medium text-slate-900 dark:text-slate-100">{scanData?.input?.email || "—"}</p>
                       </div>
-                      <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Username / Domain</p>
-                        <p className="mt-1 break-all font-medium text-slate-900">{scanData?.input?.username || "—"}</p>
+                      <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 px-4 py-3">
+                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Username / Domain</p>
+                        <p className="mt-1 break-all font-medium text-slate-900 dark:text-slate-100">{scanData?.input?.username || "—"}</p>
                       </div>
                     </div>
                   </SectionCard>
@@ -1069,9 +1069,9 @@ export function Dashboard() {
               {isHistoryLoading ? (
                 <div className="space-y-3">
                   {[1, 2, 3].map((n) => (
-                    <div key={n} className="animate-pulse rounded-2xl bg-slate-100 p-4">
-                      <div className="h-3 w-3/4 rounded bg-slate-200" />
-                      <div className="mt-3 h-2 w-1/2 rounded bg-slate-200" />
+                    <div key={n} className="animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800 p-4">
+                      <div className="h-3 w-3/4 rounded bg-slate-200 dark:bg-slate-700" />
+                      <div className="mt-3 h-2 w-1/2 rounded bg-slate-200 dark:bg-slate-700" />
                     </div>
                   ))}
                 </div>
@@ -1083,15 +1083,15 @@ export function Dashboard() {
                       className="rounded-2xl border border-slate-100 bg-slate-50 p-4 cursor-pointer hover:bg-slate-100 transition-colors dark:bg-slate-900/50 dark:border-slate-800 dark:hover:bg-slate-800/80"
                       onClick={() => handleLoadHistoryItem(item.id)}
                     >
-                      <p className="break-all text-sm font-semibold text-slate-900">
+                      <p className="break-all text-sm font-semibold text-slate-900 dark:text-slate-100">
                         {item.query}
                       </p>
                       <div className="mt-2 flex items-center justify-between text-sm">
-                        <span className="text-slate-500">Risk score</span>
-                        <span className="font-semibold text-slate-900">{item.risk_score}</span>
+                        <span className="text-slate-500 dark:text-slate-400">Risk score</span>
+                        <span className="font-semibold text-slate-900 dark:text-slate-100">{item.risk_score}</span>
                       </div>
                       {item.created_at && (
-                        <p className="mt-2 text-xs text-slate-500">
+                        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
                           {new Date(item.created_at).toLocaleString()}
                         </p>
                       )}
