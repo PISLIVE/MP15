@@ -60,7 +60,7 @@ export function ProfileSearch({ onSearch, isLoading }: ProfileSearchProps) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex gap-2"
+              className="flex flex-col sm:flex-row gap-2"
             >
               <div className="flex-1 relative">
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
@@ -77,11 +77,11 @@ export function ProfileSearch({ onSearch, isLoading }: ProfileSearchProps) {
                   autoComplete="off"
                 />
               </div>
-              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="w-full sm:w-auto">
                 <Button
                   onClick={handleSearch}
                   disabled={isLoading || !canSearch()}
-                  className="px-5 py-5 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl shadow-lg transition-all"
+                  className="w-full sm:w-auto px-5 py-5 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl shadow-lg transition-all"
                 >
                   {isLoading
                     ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Scanning…</>

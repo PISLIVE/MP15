@@ -539,7 +539,7 @@ export function Dashboard() {
               <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-xl">
                 Digital Footprint Analyzer
               </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 sm:text-sm">
+              <p className="hidden sm:block text-xs text-slate-500 dark:text-slate-400 sm:text-sm">
                 Live visibility, breach, and public presence monitoring
               </p>
             </div>
@@ -602,8 +602,8 @@ export function Dashboard() {
               onClick={handleLogout}
               className="rounded-xl border-slate-300 bg-white/80 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-200"
             >
-              <LogOut className="mr-1 h-4 w-4" />
-              Logout
+              <LogOut className="sm:mr-1 h-4 w-4" />
+              <span className="hidden sm:inline">Logout</span>
             </Button>
           </div>
         </div>
