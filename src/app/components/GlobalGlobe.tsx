@@ -56,15 +56,15 @@ export function GlobalGlobe({ scanData }: GlobalGlobeProps) {
 
     globe = createGlobe(canvasRef.current, {
       devicePixelRatio: 2,
-      width: width * 2,
-      height: width * 2,
+      width: width,
+      height: width,
       phi: 0,
       theta: 0.2,
       dark: isDark ? 1 : 0,
       diffuse: 1.2,
       mapSamples: 16000,
-      mapBrightness: 6,
-      baseColor: isDark ? [0.3, 0.3, 0.3] : [1, 1, 1],
+      mapBrightness: isDark ? 6 : 1.2,
+      baseColor: isDark ? [0.2, 0.2, 0.25] : [1, 1, 1],
       markerColor: [1, 0.1, 0.2], // Bright Red markers for breaches
       glowColor: isDark ? [0.1, 0.1, 0.2] : [1, 1, 1],
       markers: markers.map(m => ({ location: m.location, size: 0.05 })),
@@ -73,8 +73,8 @@ export function GlobalGlobe({ scanData }: GlobalGlobeProps) {
         // `state` will be an empty object, return updated params.
         state.phi = phi;
         phi += 0.005;
-        state.width = width * 2;
-        state.height = width * 2;
+        state.width = width;
+        state.height = width;
       },
     });
 
