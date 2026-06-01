@@ -1,87 +1,109 @@
 import React, { useMemo } from 'react';
 import { ScanData } from '../types/scan';
+import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps';
+import { useTheme } from 'next-themes';
 
 interface GlobalGlobeProps {
   scanData: ScanData | null;
 }
 
+const geoUrl = "https://unpkg.com/world-atlas@2.0.2/countries-110m.json";
+
+// Standard datacenters, coordinates in [Longitude, Latitude] for standard mapping
+const MOCK_DATACENTERS = [
+  { name: "San Francisco", coordinates: [-122.4194, 37.7749] },
+  { name: "New York", coordinates: [-74.0060, 40.7128] },
+  { name: "London", coordinates: [-0.1278, 51.5074] },
+  { name: "Frankfurt", coordinates: [8.6821, 50.1109] },
+  { name: "Singapore", coordinates: [103.8198, 1.3521] },
+  { name: "Tokyo", coordinates: [139.6503, 35.6762] },
+  { name: "Sydney", coordinates: [151.2093, -33.8688] },
+];
+
 export function GlobalGlobe({ scanData }: GlobalGlobeProps) {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+
   const markers = useMemo(() => {
     if (!scanData) return [];
     
     const numMarkers = Math.min(
       (scanData.breachResults?.length || 0) + (scanData.socialResults?.filter(s => s.found).length || 0),
-      12 // max blips
+      MOCK_DATACENTERS.length
     );
 
-    // Generate random positions within the radar circle (20% to 85% radius, 0 to 360 deg)
-    return Array.from({ length: Math.max(1, numMarkers) }).map((_, i) => {
-      const angle = Math.random() * 360;
-      const radius = 20 + Math.random() * 65; 
-      return { id: i, angle, radius };
-    });
+    return MOCK_DATACENTERS.slice(0, Math.max(1, numMarkers)).map((m, i) => ({
+      id: i,
+      ...m
+    }));
   }, [scanData]);
+
+  const mapColor = isDark ? "#1E293B" : "#F1F5F9"; // slate-800 / slate-100
+  const strokeColor = isDark ? "#334155" : "#E2E8F0"; // slate-700 / slate-200
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center relative overflow-hidden group py-4 min-h-[300px]">
-      <style>{`
-        @keyframes radar-spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        .radar-sweep {
-          animation: radar-spin 4s linear infinite;
-          background: conic-gradient(from 0deg, transparent 70%, rgba(34, 197, 94, 0.1) 95%, rgba(34, 197, 94, 0.5) 100%);
-        }
-        .blip-pulse {
-          animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-      `}</style>
-
       {/* Legend overlay */}
       <div className="absolute top-2 left-2 z-20 pointer-events-none opacity-80 group-hover:opacity-100 transition-opacity">
         <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 shadow-sm text-xs max-w-[200px]">
           <div className="flex items-start gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-red-500 mt-0.5 shrink-0 animate-ping" />
+            <div className="w-2.5 h-2.5 rounded-full bg-red-500 mt-0.5 shrink-0" />
             <p className="text-slate-700 dark:text-slate-300 leading-tight">
-              <span className="font-semibold block mb-0.5 text-slate-900 dark:text-slate-100">Threat Radar</span>
-              Detecting active signals from data centers hosting your footprint.
+              <span className="font-semibold block mb-0.5 text-slate-900 dark:text-slate-100">Global Threat Vectors</span>
+              Detected infrastructure nodes containing footprint traces.
             </p>
           </div>
         </div>
       </div>
 
-      {/* Radar Container */}
-      <div className="relative w-64 h-64 sm:w-72 sm:h-72 rounded-full border border-green-500/30 dark:border-green-400/20 bg-slate-50 dark:bg-slate-900/50 overflow-hidden shadow-[0_0_40px_rgba(34,197,94,0.05)] dark:shadow-[0_0_40px_rgba(34,197,94,0.1)]">
-        
-        {/* Concentric Grid Circles */}
-        <div className="absolute inset-4 rounded-full border border-green-500/20" />
-        <div className="absolute inset-12 rounded-full border border-green-500/20" />
-        <div className="absolute inset-20 rounded-full border border-green-500/20" />
-        
-        {/* Crosshairs */}
-        <div className="absolute top-0 bottom-0 left-1/2 w-px bg-green-500/20" />
-        <div className="absolute left-0 right-0 top-1/2 h-px bg-green-500/20" />
-
-        {/* Sweeping Radar Arm */}
-        <div className="absolute inset-0 rounded-full radar-sweep origin-center" />
-
-        {/* Threat Blips */}
-        {markers.map((marker) => (
-          <div
-            key={marker.id}
-            className="absolute top-1/2 left-1/2"
-            style={{
-              transform: `rotate(${marker.angle}deg) translateY(-${marker.radius * 1.5}px)`, // using px approximation based on radius %
-            }}
-          >
-            {/* Blip Dot */}
-            <div className="relative">
-              <div className="w-3 h-3 bg-red-500 rounded-full shadow-[0_0_12px_rgba(239,68,68,1)] absolute -ml-1.5 -mt-1.5" />
-              <div className="w-3 h-3 bg-red-500 rounded-full absolute -ml-1.5 -mt-1.5 blip-pulse opacity-75" />
-            </div>
-          </div>
-        ))}
+      <div className="w-full h-full max-w-2xl px-2 sm:px-4 flex items-center justify-center">
+        <ComposableMap
+          projection="geoMercator"
+          projectionConfig={{ scale: 100, center: [0, 30] }}
+          style={{ width: "100%", height: "auto" }}
+        >
+          <Geographies geography={geoUrl}>
+            {({ geographies }) =>
+              geographies.map((geo) => (
+                <Geography
+                  key={geo.rsmKey}
+                  geography={geo}
+                  fill={mapColor}
+                  stroke={strokeColor}
+                  strokeWidth={0.5}
+                  style={{
+                    default: { outline: "none" },
+                    hover: { outline: "none", fill: isDark ? "#334155" : "#E2E8F0" },
+                    pressed: { outline: "none" },
+                  }}
+                />
+              ))
+            }
+          </Geographies>
+          
+          {markers.map(({ id, name, coordinates }) => (
+            <Marker key={id} coordinates={coordinates as [number, number]}>
+              {/* Outer pulsing ring */}
+              <circle r={6} fill="#EF4444" className="animate-pulse opacity-40" />
+              {/* Inner dot */}
+              <circle r={3} fill="#EF4444" />
+              {/* City Name Label */}
+              <text
+                textAnchor="middle"
+                y={-10}
+                style={{
+                  fontFamily: "inherit",
+                  fill: isDark ? "#94A3B8" : "#64748B", // slate-400 / slate-500
+                  fontSize: '9px',
+                  fontWeight: 600,
+                  pointerEvents: 'none'
+                }}
+              >
+                {name}
+              </text>
+            </Marker>
+          ))}
+        </ComposableMap>
       </div>
     </div>
   );
