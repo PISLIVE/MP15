@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ScanData } from '../types/scan';
-import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps';
+import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from 'react-simple-maps';
 import { useTheme } from 'next-themes';
+import { Plus, Minus } from 'lucide-react';
 
 interface GlobalGlobeProps {
   scanData: ScanData | null;
@@ -23,6 +24,22 @@ const MOCK_DATACENTERS = [
 export function GlobalGlobe({ scanData }: GlobalGlobeProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+
+  const [position, setPosition] = useState({ coordinates: [0, 30] as [number, number], zoom: 1 });
+
+  const handleZoomIn = () => {
+    if (position.zoom >= 4) return;
+    setPosition((pos) => ({ ...pos, zoom: pos.zoom * 1.5 }));
+  };
+
+  const handleZoomOut = () => {
+    if (position.zoom <= 1) return;
+    setPosition((pos) => ({ ...pos, zoom: pos.zoom / 1.5 }));
+  };
+
+  const handleMoveEnd = (newPosition: { coordinates: [number, number]; zoom: number }) => {
+    setPosition(newPosition);
+  };
 
   const markers = useMemo(() => {
     if (!scanData) return [];
@@ -56,53 +73,81 @@ export function GlobalGlobe({ scanData }: GlobalGlobeProps) {
         </div>
       </div>
 
+      {/* Zoom Controls */}
+      <div className="absolute bottom-4 right-4 z-20 flex flex-col gap-2">
+        <button
+          onClick={handleZoomIn}
+          className="p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+          aria-label="Zoom in"
+        >
+          <Plus className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+        </button>
+        <button
+          onClick={handleZoomOut}
+          className="p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+          aria-label="Zoom out"
+        >
+          <Minus className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+        </button>
+      </div>
+
       <div className="w-full h-full max-w-2xl px-2 sm:px-4 flex items-center justify-center">
         <ComposableMap
           projection="geoMercator"
-          projectionConfig={{ scale: 100, center: [0, 30] }}
+          projectionConfig={{ scale: 100 }}
           style={{ width: "100%", height: "auto" }}
         >
-          <Geographies geography={geoUrl}>
-            {({ geographies }) =>
-              geographies.map((geo) => (
-                <Geography
-                  key={geo.rsmKey}
-                  geography={geo}
-                  fill={mapColor}
-                  stroke={strokeColor}
-                  strokeWidth={0.5}
+          <ZoomableGroup
+            zoom={position.zoom}
+            center={position.coordinates}
+            onMoveEnd={handleMoveEnd}
+            translateExtent={[
+              [0, -100],
+              [800, 600]
+            ]}
+          >
+            <Geographies geography={geoUrl}>
+              {({ geographies }) =>
+                geographies.map((geo) => (
+                  <Geography
+                    key={geo.rsmKey}
+                    geography={geo}
+                    fill={mapColor}
+                    stroke={strokeColor}
+                    strokeWidth={0.5 / position.zoom} // Scale stroke width based on zoom
+                    style={{
+                      default: { outline: "none" },
+                      hover: { outline: "none", fill: isDark ? "#334155" : "#E2E8F0" },
+                      pressed: { outline: "none" },
+                    }}
+                  />
+                ))
+              }
+            </Geographies>
+            
+            {markers.map(({ id, name, coordinates }) => (
+              <Marker key={id} coordinates={coordinates as [number, number]}>
+                {/* Outer pulsing ring */}
+                <circle r={6 / position.zoom} fill="#EF4444" className="animate-pulse opacity-40" />
+                {/* Inner dot */}
+                <circle r={3 / position.zoom} fill="#EF4444" />
+                {/* City Name Label */}
+                <text
+                  textAnchor="middle"
+                  y={-10 / position.zoom}
                   style={{
-                    default: { outline: "none" },
-                    hover: { outline: "none", fill: isDark ? "#334155" : "#E2E8F0" },
-                    pressed: { outline: "none" },
+                    fontFamily: "inherit",
+                    fill: isDark ? "#94A3B8" : "#64748B",
+                    fontSize: `${9 / position.zoom}px`,
+                    fontWeight: 600,
+                    pointerEvents: 'none'
                   }}
-                />
-              ))
-            }
-          </Geographies>
-          
-          {markers.map(({ id, name, coordinates }) => (
-            <Marker key={id} coordinates={coordinates as [number, number]}>
-              {/* Outer pulsing ring */}
-              <circle r={6} fill="#EF4444" className="animate-pulse opacity-40" />
-              {/* Inner dot */}
-              <circle r={3} fill="#EF4444" />
-              {/* City Name Label */}
-              <text
-                textAnchor="middle"
-                y={-10}
-                style={{
-                  fontFamily: "inherit",
-                  fill: isDark ? "#94A3B8" : "#64748B", // slate-400 / slate-500
-                  fontSize: '9px',
-                  fontWeight: 600,
-                  pointerEvents: 'none'
-                }}
-              >
-                {name}
-              </text>
-            </Marker>
-          ))}
+                >
+                  {name}
+                </text>
+              </Marker>
+            ))}
+          </ZoomableGroup>
         </ComposableMap>
       </div>
     </div>
