@@ -11,4 +11,8 @@ if (!supabaseKey) {
   throw new Error("VITE_SUPABASE_ANON_KEY is missing");
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    storage: window.sessionStorage,
+  },
+});

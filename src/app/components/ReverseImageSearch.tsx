@@ -56,7 +56,7 @@ export function ReverseImageSearch() {
             <ImageIcon className="w-6 h-6 text-indigo-500" />
             Reverse Image Search
           </h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Detect impersonation and fake profiles using facial recognition analysis.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Detect impersonation and profiles using facial recognition analysis.</p>
         </div>
       </div>
 
@@ -102,7 +102,7 @@ export function ReverseImageSearch() {
             <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
             Scanning Facial Biometrics...
           </h4>
-          <p className="text-sm text-slate-500">Cross-referencing against public images via API.</p>
+          <p className="text-sm text-slate-500">Cross-referencing against public images.</p>
         </Card>
       )}
 

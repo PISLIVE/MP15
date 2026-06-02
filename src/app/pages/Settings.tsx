@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { settingsService } from "../services/settingsService";
+import { supabase } from "../lib/supabase";
 
 export function Settings() {
   const { user, logout } = useAuth();
@@ -108,8 +109,17 @@ export function Settings() {
     navigate("/login", { replace: true });
   };
 
-  const handleChangePassword = () => {
-    toast.info("A password reset email will be sent to " + authEmail);
+  const handleChangePassword = async () => {
+    if (!authEmail) return;
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(authEmail, {
+        redirectTo: `${window.location.origin}/settings`,
+      });
+      if (error) throw error;
+      toast.success("Password reset email sent to " + authEmail);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to send reset email");
+    }
   };
 
   if (isInitialLoading) {
